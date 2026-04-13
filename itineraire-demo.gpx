@@ -3,7 +3,7 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns="http://www.topografix.com/GPX/1/1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
 	<metadata>
-		<name> Iténéraire démo Gantrisch J1 </name>
+		<name> Itinéraire démo Gantrisch J1 </name>
 		<bounds minlat="46.664000221993774" minlon="7.249590219464153" maxlat="46.71067029796541" maxlon="7.288300157990307" />
 	</metadata>
 	<wpt lat="46.6840100508976" lon="7.260779745891626">
