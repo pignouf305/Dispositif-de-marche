@@ -8,7 +8,7 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 * Créer un tracé sur [map.wanderland.ch](https://schweizmobil.ch/fr/) pour chaque jour.
 * Ajouter des marqueurs avec des commentaires (sécurité, orientation) sur les points d'intérêts du parcours.
 * Exporter le tracé en .gpx.
-* Importer ici le fichier .gpx, adapter l'heure de départ et la vitesse de marche, puis imprimer.
+* Importer sur [pignouf305.github.io/Dispositif-de-marche](https://pignouf305.github.io/Dispositif-de-marche/) le fichier .gpx, adapter l'heure de départ et la vitesse de marche, puis imprimer.
 
 
 ## To do
@@ -17,7 +17,7 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [ ] Gestion des pauses
 - [ ] Commentaires
 - [ ] Export pdf / ods?
-- [ ] Coordnonnées suisses
+- [ ] Coordonnées suisses
 - [ ] Dénivellé positif par étapes
 - [ ] Kme dans profil altimétrique
 - [ ] Zoom dans profil altimétrique
