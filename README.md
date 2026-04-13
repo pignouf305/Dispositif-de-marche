@@ -17,7 +17,7 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [ ] Gestion des pauses
 - [ ] Commentaires
 - [ ] Export pdf / ods?
-- [ ] Coordonnées suisses
-- [ ] Dénivellé positif par étapes
+- [x] Coordonnées suisses
+- [x] ~~Dénivellé positif par étapes~~
 - [ ] Kme dans profil altimétrique
 - [ ] Zoom dans profil altimétrique
