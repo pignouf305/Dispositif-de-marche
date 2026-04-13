@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispositif de marche GPX</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text: #1c1b18;
+    --muted: #8a8880;
+    --accent: #3d5af1;
+    --accent-light: #eef0fd;
+    --green: #1a9e6e;
+    --green-light: #e8f7f2;
+    --orange: #e05a2b;
+    --orange-light: #fdf0eb;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Exo", "Helvetica Neue",Arial,sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo svg { color: white; }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
+  .pill {
+    margin-left: auto;
+    font-size: 11px; font-family: var(--mono);
+    background: var(--green-light); color: var(--green);
+    padding: 3px 10px; border-radius: 20px;
+    border: 1px solid #b3e6d4;
+  }
+
+  /* ── Upload ── */
+  #upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 61px);
+    padding: 2rem;
+  }
+
+  .drop-zone {
+    width: 100%;
+    max-width: 520px;
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 3.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s, transform .15s;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    transform: translateY(-2px);
+  }
+  .drop-zone input { display: none; }
+
+  .icon-wrap {
+    width: 64px; height: 64px;
+    background: var(--accent-light);
+    border-radius: 16px;
+    margin: 0 auto 1.25rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .drop-zone h2 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .drop-zone p { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: background .15s, transform .1s;
+    font-family: var(--sans);
+  }
+  .btn:hover { background: var(--bg); }
+  .btn:active { transform: scale(.98); }
+  .btn-accent {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .btn-accent:hover { background: #2d49d4; }
+
+  .hint { font-size: 11px; color: var(--muted); margin-top: 12px; font-family: var(--mono); }
+
+  /* ── Dashboard ── */
+  #dashboard { display: none; padding: 24px; max-width: 1140px; margin: 0 auto; }
+
+  .dash-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+  }
+  #track-name { font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
+  #track-date { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+
+  /* ── Stats grid ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .stat-label {
+    font-size: 10px; font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: .6px;
+    margin-bottom: 6px;
+  }
+  .stat-value { font-size: 21px; font-weight: 600; line-height: 1; }
+  .stat-unit { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+  .stat-card.accent { background: var(--accent); border-color: var(--accent); }
+  .stat-card.accent .stat-label { color: rgba(255,255,255,.65); }
+  .stat-card.accent .stat-value { color: #fff; }
+  .stat-card.accent .stat-unit { color: rgba(255,255,255,.65); }
+
+  /* ── Panels ── */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width: 720px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .full-panel { grid-column: 1 / -1; }
+  .panel-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+    font-family: var(--mono);
+  }
+  .panel-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+
+  #map { height: 320px; width: 100%; }
+
+  .chart-wrap { padding: 14px; height: 200px; position: relative; }
+
+  /* ── Waypoints table ── */
+  #wpt-panel { display: none; }
+  .wpt-table-wrap { overflow-x: auto; }
+  .wpt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .wpt-table thead tr {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .wpt-table th {
+    padding: 9px 14px;
+    text-align: left;
+    font-size: 10px; font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .wpt-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .wpt-table tbody tr:last-child td { border-bottom: none; }
+  .wpt-table tbody tr:hover { background: var(--bg); cursor: pointer; }
+  .wpt-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: var(--accent-light); color: var(--accent);
+    border-radius: 50%;
+    font-size: 11px; font-family: var(--mono); font-weight: 500;
+  }
+  .wpt-name { font-weight: 500; }
+  .wpt-desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .wpt-coord { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .wpt-ele { font-family: var(--mono); font-size: 12px; }
+  .wpt-sym {
+    display: inline-block;
+    font-size: 11px;
+    background: var(--orange-light); color: var(--orange);
+    padding: 2px 8px; border-radius: 20px;
+    border: 1px solid #f5c5ae;
+    white-space: nowrap;
+  }
+  .wpt-empty {
+    padding: 1.5rem 14px;
+    font-size: 13px; color: var(--muted);
+    font-style: italic;
+  }
+  .wpt-arrival { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent); }
+  .wpt-arrival.interpolated { color: var(--green); }
+
+  /* Barre de saisie heure départ */
+  .start-time-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 13px;
+  }
+  .start-time-bar label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .start-time-bar input[type="time"] {
+    font-family: var(--mono); font-size: 13px;
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; background: var(--surface); color: var(--text);
+    outline: none;
+  }
+  .start-time-bar input[type="time"]:focus { border-color: var(--accent); }
+  .start-time-note { font-size: 11px; color: var(--muted); }
+
+  /* ── Error ── */
+  .error-msg {
+    background: #fdf0eb; color: var(--orange);
+    border: 1px solid #f5c5ae;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    margin: 1rem 0;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="https://scouts-geneve.ch/wp-content/themes/gvadevaio/images/logo-scouts-ge.png" height=30px/>
+  <h1>Dispositif de marche</h1>
+  <span class="pill">Données traitées localement</span>
+</header>
+
+<div id="upload-section">
+  <div class="drop-zone" id="dropZone">
+    <div class="icon-wrap">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3d5af1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <path d="M12 18v-6"/>
+        <path d="m9 15 3-3 3 3"/>
+      </svg>
+    </div>
+    <h2>Importer un fichier GPX</h2>
+    <p>Glissez-déposez votre fichier ici, ou cliquez pour parcourir</p>
+    <input type="file" id="fileInput" accept=".gpx,application/gpx+xml,text/xml">
+    <label for="fileInput" class="btn btn-accent">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Choisir un fichier
+    </label>
+    <div class="hint">Format .gpx — trace, waypoints, horodatages</div>
+  </div>
+  <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<div id="dashboard">
+  <div class="dash-header">
+    <div>
+      <div id="track-name"></div>
+      <div id="track-date"></div>
+
+      <label for="speedInput" style="color:var(--muted);font-size:12px;">Vitesse de marche :</label>
+      <input type="number" id="speedInput" value="4.6" min="0.2" max="30" step="0.2"
+        style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;">
+      <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">kme/h</span>
+
+    </div>
+    <button class="btn" onclick="resetApp()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Nouveau fichier
+    </button>
+  </div>
+
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="panels">
+    <div class="panel full-panel">
+      <div class="panel-header">
+        <span class="panel-dot" style="background:#3d5af1"></span>
+        Tracé GPS
+      </div>
+      <div id="map"></div>
+    </div>
+    <div class="panel full-panel">
+      <div class="panel-header">
+        <span class="panel-dot" style="background:#3d5af1"></span>
+        Profil altimétrique
+      </div>
+      <div class="chart-wrap"><canvas id="elevChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Waypoints -->
+  <div id="wpt-panel" class="panel full-panel" style="margin-top:14px;">
+    <div class="panel-header">
+      <span class="panel-dot" style="background:#e05a2b"></span>
+      Waypoints&nbsp;<span id="wpt-count" style="font-weight:600;color:var(--text)"></span>
+    </div>
+    <!-- Barre heure de départ (affichée uniquement si pas de timestamps dans les trkpt) -->
+    <div class="start-time-bar" id="start-time-bar" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      <label for="startTimeInput">Heure de départ estimée :</label>
+      <input type="time" id="startTimeInput" value="08:00">
+
+
+    </div>
+    <div class="wpt-table-wrap">
+      <table class="wpt-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nom</th>
+            <th>Altitude</th>
+            <th>Coordonnées</th>
+            <th>Distance (km)</th>
+            <th>Distance (kme)</th>
+            <th>Heure d'arrivée estimée</th>
+          </tr>
+        </thead>
+        <tbody id="wpt-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts APRÈS le HTML -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+(function() {
+  let mapInst = null, elevCI = null, speedCI = null;
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const errorMsg  = document.getElementById('errorMsg');
+
+  // Drag & drop
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) processFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) processFile(e.target.files[0]);
+  });
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+  }
+
+  window.resetApp = function() {
+    document.getElementById('upload-section').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    errorMsg.style.display = 'none';
+    fileInput.value = '';
+    if (mapInst)  { mapInst.remove();   mapInst  = null; }
+    if (elevCI)   { elevCI.destroy();   elevCI   = null; }
+    if (speedCI)  { speedCI.destroy();  speedCI  = null; }
+  };
+
+  function processFile(file) {
+    errorMsg.style.display = 'none';
+    if (!file.name.toLowerCase().endsWith('.gpx') && file.type && !file.type.includes('xml')) {
+      showError('Veuillez sélectionner un fichier .gpx valide.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => showError('Impossible de lire ce fichier.');
+    reader.onload  = e => {
+      try { parseGPX(e.target.result, file.name); }
+      catch(err) { showError('Erreur lors de l\'analyse : ' + err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  function parseGPX(text, filename) {
+    const xml = new DOMParser().parseFromString(text, 'application/xml');
+
+    // Détecter les erreurs de parsing XML
+    const parseErr = xml.querySelector('parsererror');
+    if (parseErr) throw new Error('Le fichier XML est mal formé.');
+
+    const nameEl  = xml.querySelector('trk > name, name');
+    const trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
+
+    const firstTime = xml.querySelector('trkpt time');
+    const dateStr = firstTime
+      ? new Date(firstTime.textContent).toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
+      : '';
+
+    const trkpts = Array.from(xml.querySelectorAll('trkpt'));
+    if (!trkpts.length) throw new Error('Aucun point de trace (trkpt) trouvé dans ce fichier.');
+
+    const pts = trkpts.map(pt => {
+      const lat  = parseFloat(pt.getAttribute('lat'));
+      const lon  = parseFloat(pt.getAttribute('lon'));
+      const eleEl = pt.querySelector('ele');
+      const ele  = eleEl ? parseFloat(eleEl.textContent) : 0;
+      const tEl  = pt.querySelector('time');
+      const time = tEl ? new Date(tEl.textContent) : null;
+      return { lat, lon, ele, time };
+    }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
+
+    if (!pts.length) throw new Error('Les coordonnées GPS sont invalides.');
+
+
+
+
+
+
+    // Calculs pour chaque trkpt
+    let gainPos = 0, gainNeg = 0, maxSpd = 0;
+    const cumDist = [0], cumDistEffort = [0]; // en mètres
+
+    for (let i = 1; i < pts.length; i++) {
+
+      // Distance horizontale entre chaque trkpt
+      const d  = haversine(pts[i-1], pts[i]);      
+      cumDist.push(cumDist[i-1] + d);// ── Distances cumulées sur la trace complète (pour interpolation) ──   
+
+      // Distance verticale entre chaque trkpt
+      const de = pts[i].ele - pts[i-1].ele;
+      if (de > 0) gainPos += de; else gainNeg += Math.abs(de);
+
+      // Km-effort entre chaque trkpt
+      const dEff  = d + ((de > 0) ? (de *10) : (de * -3));      // Km-effort = dist_horiz + dénivelé_positif*10 + dénivelé_négatif*3 https://fr.wikipedia.org/wiki/Kilom%C3%A8tre-effort
+      cumDistEffort.push(cumDistEffort[i-1] + dEff);// ── Distances cumulées sur la trace complète (pour interpolation) ──   
+
+    }
+    
+    const totalDist = cumDist[cumDist.length - 1];
+    const totalDistEffort = cumDistEffort[cumDist.length - 1];
+
+
+    const eles = pts.map(p => p.ele);
+    const hasEle   = eles.some(e => e !== 0);
+    const hasTimes = pts[0].time && pts[pts.length-1].time;   
+
+
+
+
+
+    // MàJ affichage
+    let t0 = new Date();
+    t0.setHours(0, 0, 0, 0);
+    function updateStats() {
+      const speedInp = document.getElementById('speedInput');
+      const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+      if (kmeh > 0) {
+        const distKme  = totalDistEffort / 1000;
+        const ms      = (distKme / kmeh) * 3600000;
+        durationDate   = new Date(t0.getTime()+ms);
+        durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+      document.getElementById('upload-section').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('track-name').textContent = trackName;
+      document.getElementById('track-date').textContent = dateStr;
+
+      const stats = [
+        { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
+        { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
+        { label: 'Durée',      value: durationStr || '—',         unit: '' , accent: true },
+        { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
+        { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
+        { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
+        { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
+        { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
+      ];
+
+      document.getElementById('statsGrid').innerHTML = stats.map(s => `
+        <div class="stat-card${s.accent ? ' accent' : ''}">
+          <div class="stat-label">${s.label}</div>
+          <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
+        </div>`).join('');
+  }
+
+  document.getElementById('speedInput').addEventListener('input', updateStats);
+  updateStats();
+
+
+    // ── Waypoints ──
+    const wptEls = Array.from(xml.querySelectorAll('wpt'));
+    const wpts = wptEls.map((w, i) => {
+      const lat   = parseFloat(w.getAttribute('lat'));
+      const lon   = parseFloat(w.getAttribute('lon'));
+      const name  = w.querySelector('name')?.textContent.trim() || ('WPT ' + (i+1));
+      const desc  = w.querySelector('desc')?.textContent.trim() || '';
+      const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
+      const eleEl = w.querySelector('ele');
+      const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
+      return { lat, lon, name, desc, cmt, ele };
+    }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
+
+    // Pour chaque waypoint, trouver le trkpt le plus proche
+    // et mémoriser son index + distance depuis le départ
+    wpts.forEach(w => {
+      let bestIdx = 0, bestDist = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const d = haversine(pts[i], w);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      w.nearestIdx    = bestIdx;
+      w.nearestDist   = bestDist;
+      w.distFromStart = cumDist[bestIdx];
+      w.distEffortFromStart = cumDistEffort[bestIdx];
+      w.trkptEle      = pts[bestIdx].ele; // altitude du trkpt le plus proche
+    });
+
+    // Trier les waypoints dans l'ordre de la trace (par distance cumulée depuis le départ)
+    wpts.sort((a, b) => a.distFromStart - b.distFromStart);
+
+    const wptPanel  = document.getElementById('wpt-panel');
+    const wptTbody  = document.getElementById('wpt-tbody');
+    const wptCount  = document.getElementById('wpt-count');
+    const startBar  = document.getElementById('start-time-bar');
+    const startInp  = document.getElementById('startTimeInput');
+
+    // Fonction qui calcule et affiche les heures d'arrivée
+    function renderWptTable() {
+
+      // Heure de départ depuis le champ de saisie
+      startBar.style.display = 'flex';
+      const [hh, mm] = startInp.value.split(':').map(Number);
+      let t0 = new Date();
+      t0.setHours(hh, mm, 0, 0);
+
+
+      wptTbody.innerHTML = wpts.map((w, i) => {
+      // Calcul de l'heure d'arrivée au waypoint
+      let arrivalStr = '—';
+      arrivalClass = 'wpt-arrival interpolated';
+
+
+      // heure départ + vitesse de marche
+      const speedInp = document.getElementById('speedInput');
+      const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+      if (kmeh > 0) {
+        const distKme  = w.distEffortFromStart / 1000;
+        const ms      = (distKme / kmeh) * 3600000;
+        const tArr    = new Date(t0.getTime() + ms);
+        arrivalStr   = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+      return `
+      <tr data-lat="${w.lat}" data-lon="${w.lon}" data-name="${w.name.replace(/"/g,'&quot;')}">
+        <td><span class="wpt-num">${i+1}</span></td>
+        <td>
+          <div class="wpt-name">${w.name}</div>
+          ${w.desc ? `<div class="wpt-desc">${w.desc}</div>` : w.cmt ? `<div class="wpt-desc">${w.cmt}</div>` : ''}
+        </td>
+        <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
+        <td class="wpt-coord">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</td>
+        <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
+        <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} km</td>
+        <td><span class="${arrivalClass}">${arrivalStr}</span></td>
+      </tr>`;
+      }).join('');
+
+      // Clic sur une ligne → centrer la carte
+      wptTbody.querySelectorAll('tr').forEach(row => {
+        row.addEventListener('click', () => {
+          const lat = parseFloat(row.dataset.lat);
+          const lon = parseFloat(row.dataset.lon);
+          if (mapInst) { mapInst.setView([lat, lon], 15); }
+          document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+    }
+
+    if (wpts.length) {
+      wptPanel.style.display = 'block';
+      wptCount.textContent = '(' + wpts.length + ')';
+
+      document.getElementById('startTimeInput').addEventListener('input', renderWptTable);
+      document.getElementById('speedInput').addEventListener('input', renderWptTable);
+      renderWptTable();
+    } else {
+      wptPanel.style.display = 'none';
+    }
+
+    // Carte Leaflet
+    setTimeout(() => {
+      if (mapInst) { mapInst.remove(); mapInst = null; }
+      mapInst = L.map('map', { zoomControl: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
+      }).addTo(mapInst);
+
+      const lls  = pts.map(p => [p.lat, p.lon]);
+      const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
+      mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+
+      const mkIcon = (bg) => L.divIcon({
+        html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+        iconSize: [12,12], iconAnchor: [6,6], className: ''
+      });
+      L.marker(lls[0],            { icon: mkIcon('#1a9e6e') }).bindPopup('Départ').addTo(mapInst);
+      L.marker(lls[lls.length-1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée').addTo(mapInst);
+
+      // Marqueurs waypoints sur la carte
+      const wptIcon = L.divIcon({
+        html: `<div style="width:14px;height:14px;background:#e05a2b;border-radius:3px;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg)"></div>`,
+        iconSize: [14,14], iconAnchor: [7,7], className: ''
+      });
+      wpts.forEach(w => {
+        L.marker([w.lat, w.lon], { icon: wptIcon })
+          .bindPopup(`<strong>${w.name}</strong>${w.desc ? '<br><span style="font-size:12px;color:#888">' + w.desc + '</span>' : ''}${w.ele !== null ? '<br><span style="font-size:11px;font-family:monospace;color:#aaa">' + Math.round(w.ele) + ' m</span>' : ''}`)
+          .addTo(mapInst);
+      });
+    }, 150);
+
+    // Sous-échantillonnage pour les graphiques
+    const MAX = 400;
+    const step = Math.max(1, Math.floor(pts.length / MAX));
+    const spts  = pts.filter((_, i) => i % step === 0);
+
+    // Distance cumulée pour axe X
+    let cd = 0;
+    const cds = [0];
+    for (let i = 1; i < spts.length; i++) {
+      cd += haversine(spts[i-1], spts[i]) / 1000;
+      cds.push(parseFloat(cd.toFixed(2)));
+    }
+
+    const chartDefaults = {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 7, font: { size: 10 }, color: '#8a8880' }, grid: { color: 'rgba(0,0,0,.05)' }, border: { color: 'rgba(0,0,0,.1)' } },
+        y: { ticks: { font: { size: 10 }, color: '#8a8880' }, grid: { color: 'rgba(0,0,0,.05)' }, border: { color: 'rgba(0,0,0,.1)' } }
+      }
+    };
+
+    // Graphique altimétrique
+    if (elevCI) elevCI.destroy();
+    if (hasEle) {
+      elevCI = new Chart(document.getElementById('elevChart'), {
+        type: 'line',
+        data: {
+          labels: cds,
+          datasets: [{
+            data: spts.map(p => Math.round(p.ele)),
+            fill: true,
+            backgroundColor: 'rgba(61,90,241,0.08)',
+            borderColor: '#3d5af1',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.35
+          }]
+        },
+        options: {
+          ...chartDefaults,
+          plugins: { ...chartDefaults.plugins, tooltip: { callbacks: { label: c => c.parsed.y + ' m alt.', title: c => c[0].label + ' km' } } },
+          scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, title: { display: true, text: 'Distance (km)', font:{size:10}, color:'#8a8880' } }, y: { ...chartDefaults.scales.y, title: { display: true, text: 'Altitude (m)', font:{size:10}, color:'#8a8880' } } }
+        }
+      });
+    } else {
+      document.querySelector('#elevChart').closest('.panel').querySelector('.panel-header').insertAdjacentHTML('afterend', '<p style="padding:1rem;font-size:13px;color:#8a8880;">Pas de données d\'altitude dans ce fichier.</p>');
+    }
+
+  }
+
+  // Formule de Haversine : distance entre deux points GPS (en mètres)
+  function haversine(a, b) {
+    const R    = 6371000;
+    const toR  = x => x * Math.PI / 180;
+    const dLat = toR(b.lat - a.lat);
+    const dLon = toR(b.lon - a.lon);
+    const s    = Math.sin(dLat/2)**2 + Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+  }
+})();
+</script>
+</body>
+</html>
