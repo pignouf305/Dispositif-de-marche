@@ -404,7 +404,7 @@
   </div>
 </div>
 
-<!-- Scripts APRÈS le HTML -->
+<!-- Scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
@@ -554,7 +554,7 @@
               try {
                   const opt = {
                       margin:       0,
-                      filename:     trackName+'_dispositif.pdf',
+                      filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
                       image:        { type: 'jpeg', quality: 0.98 },
                       html2canvas:  { scale: 2, useCORS: true  },
                       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
