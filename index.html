@@ -340,7 +340,7 @@
     </div>
 
 
-    <button class="btn" id="download_Btn">
+    <button class="btn" id="download_Btn" onclick="downloadPdf()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
       PDF
     </button>
@@ -442,6 +442,29 @@
     if (speedCI)  { speedCI.destroy();  speedCI  = null; }
   };
 
+
+  // Bouton download
+  window.downloadPdf= async function (){
+      var element = document.getElementById('dashboard');
+
+      document.getElementById('download_Btn').style.opacity = 0;
+      document.getElementById('new_Btn').style.opacity = 0;
+      try {
+          const opt = {
+              margin:       0,
+              filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
+              image:        { type: 'jpeg', quality: 0.98 },
+              html2canvas:  { scale: 2, useCORS: true  },
+              jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+          await html2pdf().set(opt).from(element).save();
+      } catch (error) {
+          console.error('Error:', error.message);
+      }              
+      document.getElementById('download_Btn').style.opacity = 100;
+      document.getElementById('new_Btn').style.opacity = 100;
+};
+
   function processFile(file) {
     errorMsg.style.display = 'none';
     if (!file.name.toLowerCase().endsWith('.gpx') && file.type && !file.type.includes('xml')) {
@@ -486,10 +509,6 @@
     }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
 
     if (!pts.length) throw new Error('Les coordonnées GPS sont invalides.');
-
-
-
-
 
 
     // Calculs pour chaque trkpt
@@ -542,30 +561,6 @@
       document.getElementById('track-name').textContent = trackName;
       document.getElementById('track-date').textContent = dateStr;
 
-
-      // Bouton download
-      const download_button = document.getElementById('download_Btn');
-      var element = document.getElementById('dashboard');
-
-      download_button.addEventListener
-          ('click', async function () {
-              document.getElementById('download_Btn').style.opacity = 0;
-              document.getElementById('new_Btn').style.opacity = 0;
-              try {
-                  const opt = {
-                      margin:       0,
-                      filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
-                      image:        { type: 'jpeg', quality: 0.98 },
-                      html2canvas:  { scale: 2, useCORS: true  },
-                      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-                    };
-                  await html2pdf().set(opt).from(element).save();
-              } catch (error) {
-                  console.error('Error:', error.message);
-              }              
-              document.getElementById('download_Btn').style.opacity = 100;
-              document.getElementById('new_Btn').style.opacity = 100;
-          });
 
       const stats = [
         { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
