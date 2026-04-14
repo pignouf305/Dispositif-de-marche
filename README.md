@@ -16,7 +16,8 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [x] Gestion d'autres couches (swisstopo, IGN, etc.)
 - [ ] Gestion des pauses
 - [ ] Commentaires
-- [ ] Export pdf / ods?
+- [x] Export pdf
+- [ ] Fix wpt position on pdf
 - [x] Coordonnées suisses
 - [x] ~~Dénivellé positif par étapes~~
 - [ ] Kme dans profil altimétrique

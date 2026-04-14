@@ -8,6 +8,9 @@
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 
+<!-- Include html2pdf library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.12.1/html2pdf.bundle.min.js" integrity="sha512-D25Z8/1q2z65ZpJ3NzY6XiPZfwjhbv34OTQHDIZd+KPK+uWCovGt+fMkSzW8ArzCMFUgZt6Cdu7qoXNuy6a2GA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -139,7 +142,7 @@
   /* ── Stats grid ── */
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 10px;
     margin-bottom: 20px;
   }
@@ -186,12 +189,12 @@
     width: 8px; height: 8px; border-radius: 50%;
   }
 
-  #map { height: 320px; width: 100%; }
+  #map { height: 450px; width: 100%; }
 
   .chart-wrap { padding: 14px; height: 200px; position: relative; }
 
   /* ── Waypoints table ── */
-  #wpt-panel { display: none; }
+  #wpt-panel { display: none; page-break-before: always;}
   .wpt-table-wrap { overflow-x: auto; }
   .wpt-table {
     width: 100%;
@@ -218,6 +221,20 @@
   }
   .wpt-table tbody tr:last-child td { border-bottom: none; }
   .wpt-table tbody tr:hover { background: var(--bg); cursor: pointer; }
+
+  /* Colonne # : Fixe */
+  .wpt-table th:nth-child(1), .wpt-table td:nth-child(1) { width: 50px; white-space: normal; word-break: break-word;  }
+  /* Colonne Altitude : Fixe */
+  .wpt-table th:nth-child(3), .wpt-table td:nth-child(3) { width: 80px; white-space: normal; word-break: break-word; }
+  /* Colonne Coord : Fixe */
+  .wpt-table th:nth-child(4), .wpt-table td:nth-child(4) { width: 160px; white-space: normal; word-break: break-word;}
+  /* Colonnes Distance : Fixe */
+  .wpt-table th:nth-child(5), .wpt-table td:nth-child(5) { width: 90px; white-space: normal; word-break: break-word; }
+  .wpt-table th:nth-child(6), .wpt-table td:nth-child(6) { width: 100px; white-space: normal; word-break: break-word; }
+  .wpt-table th:nth-child(7), .wpt-table td:nth-child(7) { width: 80px; white-space: normal; word-break: break-word;}
+  /* Colonne Nom : Flexible (prend l'espace restant ou un %) 
+  .wpt-table th:nth-child(2), .wpt-table td:nth-child(2) { width: 30%; }*/
+
   .wpt-num {
     display: inline-flex; align-items: center; justify-content: center;
     width: 22px; height: 22px;
@@ -308,20 +325,31 @@
 
 <div id="dashboard">
   <div class="dash-header">
-    <div>
-      <div id="track-name"></div>
-      <div id="track-date"></div>
 
+    <div>
       <label for="speedInput" style="color:var(--muted);font-size:12px;">Vitesse de marche :</label>
       <input type="number" id="speedInput" value="4.6" min="0.2" max="30" step="0.2"
         style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;">
       <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">kme/h</span>
+    </div>
+
+    <div>
+      <div id="track-name"></div>
+      <div id="track-date"></div>
 
     </div>
-    <button class="btn" onclick="resetApp()">
+
+
+    <button class="btn" id="download_Btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
+      PDF
+    </button>
+
+    <button class="btn" id="new_Btn" onclick="resetApp()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Nouveau fichier
     </button>
+
   </div>
 
   <div class="stats-grid" id="statsGrid"></div>
@@ -367,7 +395,7 @@
             <th>Coordonnées</th>
             <th>Distance (km)</th>
             <th>Distance (kme)</th>
-            <th>Heure d'arrivée estimée</th>
+            <th>Heure estimée</th>
           </tr>
         </thead>
         <tbody id="wpt-tbody"></tbody>
@@ -513,6 +541,31 @@
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('track-name').textContent = trackName;
       document.getElementById('track-date').textContent = dateStr;
+
+
+      // Bouton download
+      const download_button = document.getElementById('download_Btn');
+      var element = document.getElementById('dashboard');
+
+      download_button.addEventListener
+          ('click', async function () {
+              document.getElementById('download_Btn').style.opacity = 0;
+              document.getElementById('new_Btn').style.opacity = 0;
+              try {
+                  const opt = {
+                      margin:       0,
+                      filename:     trackName+'_dispositif.pdf',
+                      image:        { type: 'jpeg', quality: 0.98 },
+                      html2canvas:  { scale: 2, useCORS: true  },
+                      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    };
+                  await html2pdf().set(opt).from(element).save();
+              } catch (error) {
+                  console.error('Error:', error.message);
+              }              
+              document.getElementById('download_Btn').style.opacity = 100;
+              document.getElementById('new_Btn').style.opacity = 100;
+          });
 
       const stats = [
         { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
