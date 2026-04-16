@@ -545,6 +545,10 @@
       ? new Date(firstTime.textContent).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})
       : '08:00';
 
+    const speedEl = xml.querySelector('extensions asg speed');
+    if(speedEl) document.getElementById('speedInput').value=parseFloat(speedEl.textContent) ; 
+
+
     const trkpts = Array.from(xml.querySelectorAll('trkpt'));
     if (!trkpts.length) throw new Error('Aucun point de trace (trkpt) trouvé dans ce fichier.');
 
