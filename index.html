@@ -232,6 +232,7 @@
   .wpt-table th:nth-child(5), .wpt-table td:nth-child(5) { width: 90px; white-space: normal; word-break: break-word; }
   .wpt-table th:nth-child(6), .wpt-table td:nth-child(6) { width: 100px; white-space: normal; word-break: break-word; }
   .wpt-table th:nth-child(7), .wpt-table td:nth-child(7) { width: 80px; white-space: normal; word-break: break-word;}
+  .wpt-table th:nth-child(8), .wpt-table td:nth-child(8) { width: 80px; white-space: normal; word-break: break-word;}
   /* Colonne Nom : Flexible (prend l'espace restant ou un %) 
   .wpt-table th:nth-child(2), .wpt-table td:nth-child(2) { width: 30%; }*/
 
@@ -244,6 +245,50 @@
   }
   .wpt-name { font-weight: 500; }
   .wpt-desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .wpt-desc-input {
+    /* Style de base identique à votre div */
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+    font-family: var(--sans); /* Assure la cohérence avec le reste du site */
+    
+    /* Reset du style natif des inputs pour ressembler à du texte */
+    border: none;
+    background: transparent;
+    outline: none;
+    padding: 0;
+    width: 100%; /* S'adapte au conteneur parent */
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    
+    /* Gestion de la hauteur et du curseur */
+    height: auto;
+    line-height: 1.4; /* Ajustez si nécessaire pour aligner avec le texte environnant */
+    cursor: text;
+
+    /* Transition douce pour tous les changements d'état */
+    transition: background-color 0.2s, border-bottom 0.2s, color 0.2s;
+    
+    /* Optionnel : curseur légèrement différent pour indiquer l'action */
+    cursor: text; 
+}
+/* 1. Au survol (Hover) : Indique que c'est interactif */
+.wpt-desc-input:hover {
+    background-color: rgba(0, 0, 0, 0.03); /* Très léger fond gris (ajustez l'opacité selon votre thème) */
+    /* Ou si vous préférez un changement de couleur de texte : */
+    /* color: var(--text); */ 
+    border-radius: 4px; /* Arrondit légèrement les angles si fond ajouté */
+    cursor: text; /* Force le curseur texte (I) */
+}
+/* 2. Quand on clique dedans (Focus) : Indique qu'on édite */
+.wpt-desc-input:focus {
+    background-color: rgba(0, 0, 0, 0.05); /* Fond un peu plus visible */
+    color: var(--text); /* Le texte devient plus sombre pour la lecture/édition */
+    border-bottom: 1px solid var(--accent); /* Petite ligne de couleur pour montrer l'activité */
+    outline: none; /* Supprime le contour bleu par défaut du navigateur */
+}
+
   .wpt-coord { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   .wpt-ele { font-family: var(--mono); font-size: 12px; }
   .wpt-sym {
@@ -395,6 +440,7 @@
             <th>Coordonnées</th>
             <th>Distance (km)</th>
             <th>Distance (kme)</th>
+            <th>Temps de pause (min.)</th>
             <th>Heure estimée</th>
           </tr>
         </thead>
@@ -536,9 +582,7 @@
 
 
     const eles = pts.map(p => p.ele);
-    const hasEle   = eles.some(e => e !== 0);
-    const hasTimes = pts[0].time && pts[pts.length-1].time;   
-
+    const hasEle   = eles.some(e => e !== 0); 
 
 
 
@@ -630,6 +674,8 @@
       let t0 = new Date();
       t0.setHours(hh, mm, 0, 0);
 
+      let cumBreakTimeMin = 0;
+
 
       wptTbody.innerHTML = wpts.map((w, i) => {
         // Calcul de l'heure d'arrivée au waypoint
@@ -638,12 +684,15 @@
 
 
         // heure départ + vitesse de marche
+        const breakTimeInp = document.getElementById('breakTimeInput'+(i+1));
+        const breakTime = (breakTimeInp ? parseFloat(breakTimeInp.value) : 0);
+        cumBreakTimeMin += breakTime;
         const speedInp = document.getElementById('speedInput');
         const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
         if (kmeh > 0) {
           const distKme  = w.distEffortFromStart / 1000;
           const ms      = (distKme / kmeh) * 3600000;
-          const tArr    = new Date(t0.getTime() + ms);
+          const tArr    = new Date(t0.getTime() + ms+ cumBreakTimeMin*60*1000);
           arrivalStr   = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
           }
 
@@ -659,7 +708,7 @@
           <td><span class="wpt-num">${i+1}</span></td>
           <td>
             <div class="wpt-name">${w.name}</div>
-            <div class="wpt-desc">${w.desc}</div>
+            <input   type="text"   class="wpt-desc-input" id="descInput${i+1}"  value="${w.desc}"   placeholder="Description..." />
           </td>
           <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
           <td>
@@ -668,18 +717,21 @@
           </td>
           <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
           <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} kme</td>
+          <td><input type="number" id="breakTimeInput${i+1}" value="${breakTime}" min="0" step="1"
+          style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;"></td>
           <td><span class="${arrivalClass}">${arrivalStr}</span></td>
         </tr>`;
       }).join('');
 
       // Clic sur une ligne → centrer la carte
-      wptTbody.querySelectorAll('tr').forEach(row => {
+      wptTbody.querySelectorAll('tr').forEach((row,i) => {
         row.addEventListener('click', () => {
           const lat = parseFloat(row.dataset.lat);
           const lon = parseFloat(row.dataset.lon);
           if (mapInst) { mapInst.setView([lat, lon], 15); }
-          document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          //document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
+        document.getElementById(`breakTimeInput${i+1}`).addEventListener('input', renderWptTable);
       });
     }
 
