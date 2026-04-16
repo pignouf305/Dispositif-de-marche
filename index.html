@@ -632,44 +632,44 @@
 
 
       wptTbody.innerHTML = wpts.map((w, i) => {
-      // Calcul de l'heure d'arrivée au waypoint
-      let arrivalStr = '—';
-      arrivalClass = 'wpt-arrival interpolated';
+        // Calcul de l'heure d'arrivée au waypoint
+        let arrivalStr = '—';
+        arrivalClass = 'wpt-arrival interpolated';
 
 
-      // heure départ + vitesse de marche
-      const speedInp = document.getElementById('speedInput');
-      const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
-      if (kmeh > 0) {
-        const distKme  = w.distEffortFromStart / 1000;
-        const ms      = (distKme / kmeh) * 3600000;
-        const tArr    = new Date(t0.getTime() + ms);
-        arrivalStr   = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        }
+        // heure départ + vitesse de marche
+        const speedInp = document.getElementById('speedInput');
+        const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+        if (kmeh > 0) {
+          const distKme  = w.distEffortFromStart / 1000;
+          const ms      = (distKme / kmeh) * 3600000;
+          const tArr    = new Date(t0.getTime() + ms);
+          arrivalStr   = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          }
 
-      // Conversion coordonnées GPS->MN03
-      let lat2 = (w.lat*3600-169028.66)/10000
-      let lon2 = (w.lon*3600 - 26782.5)/10000
-      let xMN03 = Math.floor((2600072.37 + 211455.93 * lon2- 10938.51 * lon2*lat2 - 0.36 *lon2*lat2*lat2- 44.54 * lon2*lon2*lon2)-2000000)/1000
-      let yMN03 = Math.floor((1200147.07+ 308807.95*lat2 + 3745.25*lon2*lon2 + 76.63*lat2*lat2 - 194.56*lon2*lon2*lat2 + 119.79 * lat2*lat2*lat2)- 1000000)/1000
-      
+        // Conversion coordonnées GPS->MN03
+        let lat2 = (w.lat*3600-169028.66)/10000
+        let lon2 = (w.lon*3600 - 26782.5)/10000
+        let xMN03 = Math.floor((2600072.37 + 211455.93 * lon2- 10938.51 * lon2*lat2 - 0.36 *lon2*lat2*lat2- 44.54 * lon2*lon2*lon2)-2000000)/1000
+        let yMN03 = Math.floor((1200147.07+ 308807.95*lat2 + 3745.25*lon2*lon2 + 76.63*lat2*lat2 - 194.56*lon2*lon2*lat2 + 119.79 * lat2*lat2*lat2)- 1000000)/1000
+        
 
-      return `
-      <tr data-lat="${w.lat}" data-lon="${w.lon}" data-name="${w.name.replace(/"/g,'&quot;')}">
-        <td><span class="wpt-num">${i+1}</span></td>
-        <td>
-          <div class="wpt-name">${w.name}</div>
-          <div class="wpt-desc">${w.desc}</div>
-        </td>
-        <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
-        <td>
-          <div class="wpt-ele">${xMN03} / ${yMN03}</div>
-          <div class="wpt-coord">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div>
-        </td>
-        <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
-        <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} kme</td>
-        <td><span class="${arrivalClass}">${arrivalStr}</span></td>
-      </tr>`;
+        return `
+        <tr data-lat="${w.lat}" data-lon="${w.lon}" data-name="${w.name.replace(/"/g,'&quot;')}">
+          <td><span class="wpt-num">${i+1}</span></td>
+          <td>
+            <div class="wpt-name">${w.name}</div>
+            <div class="wpt-desc">${w.desc}</div>
+          </td>
+          <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
+          <td>
+            <div class="wpt-ele">${xMN03} / ${yMN03}</div>
+            <div class="wpt-coord">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div>
+          </td>
+          <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
+          <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} kme</td>
+          <td><span class="${arrivalClass}">${arrivalStr}</span></td>
+        </tr>`;
       }).join('');
 
       // Clic sur une ligne → centrer la carte
