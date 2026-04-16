@@ -14,9 +14,10 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 ## To do
 
 - [x] Gestion d'autres couches (swisstopo, IGN, etc.)
-- [ ] Gestion des pauses
-- [ ] Commentaires
+- [x] Gestion des pauses
+- [x] Commentaires
 - [x] Export pdf
+- [ ] Export GPX
 - [ ] Fix wpt position on pdf
 - [x] Coordonnées suisses
 - [x] ~~Dénivellé positif par étapes~~
