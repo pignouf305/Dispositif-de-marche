@@ -137,7 +137,7 @@
     margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
   }
   #track-name { font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
-  #track-date { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+  /*#track-date { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }*/
 
   /* ── Stats grid ── */
   .stats-grid {
@@ -380,7 +380,7 @@
 
     <div>
       <div id="track-name"></div>
-      <div id="track-date"></div>
+      <input   type="text"  id="track-date"   class="wpt-desc-input">
 
     </div>
 
@@ -455,7 +455,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null;
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null;
 
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
@@ -486,6 +486,7 @@
     if (mapInst)  { mapInst.remove();   mapInst  = null; }
     if (elevCI)   { elevCI.destroy();   elevCI   = null; }
     if (speedCI)  { speedCI.destroy();  speedCI  = null; }
+    if (wptTbody)  { wptTbody.innerHTML = '' }
   };
 
 
@@ -540,6 +541,9 @@
     const dateStr = firstTime
       ? new Date(firstTime.textContent).toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
       : '';
+    const startHourStr = firstTime
+      ? new Date(firstTime.textContent).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})
+      : '08:00';
 
     const trkpts = Array.from(xml.querySelectorAll('trkpt'));
     if (!trkpts.length) throw new Error('Aucun point de trace (trkpt) trouvé dans ce fichier.');
@@ -603,7 +607,7 @@
       document.getElementById('upload-section').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('track-name').textContent = trackName;
-      document.getElementById('track-date').textContent = dateStr;
+      document.getElementById('track-date').value = dateStr;
 
 
       const stats = [
@@ -638,7 +642,9 @@
       const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
       const eleEl = w.querySelector('ele');
       const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
-      return { lat, lon, name, desc, cmt, ele };
+      const timeEl = w.querySelector('time');
+      const brkT = timeEl ? new Date(timeEl.textContent).getMinutes() : 0;
+      return { lat, lon, name, desc, cmt, ele, brkT };
     }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
 
     // Pour chaque waypoint, trouver le trkpt le plus proche
@@ -659,11 +665,12 @@
     // Trier les waypoints dans l'ordre de la trace (par distance cumulée depuis le départ)
     wpts.sort((a, b) => a.distFromStart - b.distFromStart);
 
+    wptTbody  = document.getElementById('wpt-tbody');
     const wptPanel  = document.getElementById('wpt-panel');
-    const wptTbody  = document.getElementById('wpt-tbody');
     const wptCount  = document.getElementById('wpt-count');
     const startBar  = document.getElementById('start-time-bar');
     const startInp  = document.getElementById('startTimeInput');
+    startInp.value = startHourStr;
 
     // Fonction qui calcule et affiche les heures d'arrivée
     function renderWptTable() {
@@ -685,7 +692,7 @@
 
         // heure départ + vitesse de marche
         const breakTimeInp = document.getElementById('breakTimeInput'+(i+1));
-        const breakTime = (breakTimeInp ? parseFloat(breakTimeInp.value) : 0);
+        const breakTime = (breakTimeInp ? parseFloat(breakTimeInp.value) : w.brkT);
         cumBreakTimeMin += breakTime;
         const speedInp = document.getElementById('speedInput');
         const kmeh = speedInp ? parseFloat(speedInp.value) : 4;

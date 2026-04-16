@@ -21,6 +21,7 @@
 	<wpt lat="46.67058794186851" lon="7.288293170217264">
 		<name>Schwarzsee, Gypsera</name>
 		<desc>Départ</desc>
+		<time>2001-06-02T03:26:55Z</time>
 	</wpt>
 	<wpt lat="46.66403230147145" lon="7.273271084724251">
 		<name>Schwarzsee Bad</name>
@@ -39,6 +40,7 @@
 		<trkseg>
 			<trkpt lat="46.67059022048488" lon="7.288300157990307">
 				<ele>1047.2699890136719</ele>
+ 				<time>2001-11-28T21:05:28Z</time>
 			</trkpt>
 			<trkpt lat="46.670550220645964" lon="7.288050157949328">
 				<ele>1047.0699768066406</ele>
