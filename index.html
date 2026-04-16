@@ -642,8 +642,8 @@
       const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
       const eleEl = w.querySelector('ele');
       const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
-      const timeEl = w.querySelector('time');
-      const brkT = timeEl ? new Date(timeEl.textContent).getMinutes() : 0;
+      const timeEl = w.querySelector('extensions asg breakTimeMin');
+      const brkT = timeEl ? parseFloat(timeEl.textContent) : 0;
       return { lat, lon, name, desc, cmt, ele, brkT };
     }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
 
