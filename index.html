@@ -10,7 +10,6 @@
 
 <!-- Include html2pdf library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.12.1/html2pdf.bundle.min.js" integrity="sha512-D25Z8/1q2z65ZpJ3NzY6XiPZfwjhbv34OTQHDIZd+KPK+uWCovGt+fMkSzW8ArzCMFUgZt6Cdu7qoXNuy6a2GA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -334,6 +333,40 @@
   .start-time-bar input[type="time"]:focus { border-color: var(--accent); }
   .start-time-note { font-size: 11px; color: var(--muted); }
 
+  /* Bouton ajout marqueur*/
+  .custom-leaflet-btn {
+      margin-left: auto;
+      margin-right: 0;
+      
+      /* Design */
+      background-color: white;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+      font-family: sans-serif; /* Ou var(--sans) si vous utilisez votre charte */
+  }
+
+  /* Effet au survol */
+  .custom-leaflet-btn:hover {
+      background-color: #f4f4f4;
+      transform: translateY(-1px);
+  }
+
+  /* Effet quand le bouton est actif (mode dessin en cours) */
+  /* Le JS ajoutera la classe 'active' via classList.toggle */
+  .custom-leaflet-btn.active {
+      background-color: #0078A8; /* Couleur primaire Leaflet */
+      color: white;
+      border-color: #005c80;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  }
+
   /* ── Error ── */
   .error-msg {
     background: #fdf0eb; color: var(--orange);
@@ -415,6 +448,7 @@
         Tracé GPS
       </div>
       <div id="map"></div>
+
     </div>
     <div class="panel full-panel">
       <div class="panel-header">
@@ -426,6 +460,9 @@
   </div>
 
   <!-- Waypoints -->
+  <button id="btn-add-marker" class="custom-leaflet-btn">
+  📍 Ajouter un marqueur
+  </button>
   <div id="wpt-panel" class="panel full-panel" style="margin-top:14px;">
     <div class="panel-header">
       <span class="panel-dot" style="background:#087f01"></span>
@@ -456,7 +493,7 @@
         <tbody id="wpt-tbody"></tbody>
       </table>
     </div>
-  </div>
+  </div>  
 </div>
 
 <!-- Scripts -->
@@ -464,7 +501,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, dateStr = null, startHourStr = null;
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, dateStr = null, startHourStr = null, markerGroup = null;
 
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
@@ -481,6 +518,7 @@
   fileInput.addEventListener('change', e => {
     if (e.target.files[0]) processFile(e.target.files[0]);
   });
+
 
   document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
 
@@ -500,6 +538,55 @@
     // On utilise un petit timeout pour s'assurer que le rendu CSS est fini
     setTimeout(adjustHeight, 0);
   }
+
+  // Bouton add marker
+  const btnAddMarker = document.getElementById('btn-add-marker');
+  let isAddingMarker = false;
+
+  // Gestion du clic sur le bouton
+  btnAddMarker.addEventListener('click', () => {
+      isAddingMarker = !isAddingMarker;
+      
+      btnAddMarker.classList.toggle('active');
+      
+      if (isAddingMarker) {
+          btnAddMarker.textContent = '❌ Annuler';
+          mapInst.getContainer().style.cursor = 'crosshair';
+      } else {
+          btnAddMarker.textContent = '📍 Ajouter un marqueur';
+          mapInst.getContainer().style.cursor = '';
+      }
+      document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Gestion du clic sur la carte
+      mapInst.on("click", function (e) {
+        if (!isAddingMarker) return;
+
+/*        L.marker(e.latlng).addTo(mapInst)
+            .bindPopup(`Nouveau point<br>Lat: ${e.latlng.lat.toFixed(4)}`)//TODO changer pour wpt similaire aux autres
+            .openPopup(); */
+        // Création du nouvel objet avec la même structure
+        const newWpt = {
+          lat: e.latlng.lat,
+          lon: e.latlng.lng,
+          name: "Point Ajouté",
+          desc: "Ajouté manuellement",
+          cmt: "",
+          ele: null,
+          brkT: 0
+        };
+
+        // Ajout au tableau existant
+        wpts.push(newWpt);
+        
+        // Optionnel : désactiver le mode après un seul clic
+        btnAddMarker.click(); 
+
+        processTrack();
+        drawMarkers();
+      });   
+  });
+  
 
   async function debugWithLocalFile() {
     try {
@@ -914,28 +1001,36 @@
         };
       L.control.layers(baseLayers, null,null).addTo(mapInst);
 
-      const lls  = pts.map(p => [p.lat, p.lon]);
-      const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
-      mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
-
-      const mkIcon = (bg) => L.divIcon({
-        html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
-        iconSize: [12,12], iconAnchor: [6,6], className: ''
-      });
-      L.marker(lls[0],            { icon: mkIcon('#1a9e6e') }).bindPopup('Départ').addTo(mapInst);
-      L.marker(lls[lls.length-1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée').addTo(mapInst);
-
-      // Marqueurs waypoints sur la carte
-      const wptIcon = L.divIcon({
-        html: `<div style="width:14px;height:14px;background:#e05a2b;border-radius:3px;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg)"></div>`,
-        iconSize: [14,14], iconAnchor: [7,7], className: ''
-      });
-      wpts.forEach(w => {
-        L.marker([w.lat, w.lon], { icon: wptIcon })
-          .bindPopup(`<strong>${w.name}</strong>${w.desc ? '<br><span style="font-size:12px;color:#888">' + w.desc + '</span>' : ''}${w.ele !== null ? '<br><span style="font-size:11px;font-family:monospace;color:#aaa">' + Math.round(w.ele) + ' m</span>' : ''}`)
-          .addTo(mapInst);
-      });
+      markerGroup = L.layerGroup().addTo(mapInst);  
+      drawMarkers();
     }, 150);
+  }
+
+  function drawMarkers() {
+    // Trkpts
+    const lls  = pts.map(p => [p.lat, p.lon]);
+    const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
+    mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+
+    // Wpts
+    markerGroup.clearLayers();
+    const mkIcon = (bg) => L.divIcon({
+      html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+      iconSize: [12,12], iconAnchor: [6,6], className: ''
+    });
+    L.marker(lls[0],            { icon: mkIcon('#1a9e6e') }).bindPopup('Départ').addTo(markerGroup);
+    L.marker(lls[lls.length-1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée').addTo(markerGroup);
+
+    // Marqueurs waypoints sur la carte
+    const wptIcon = L.divIcon({
+      html: `<div style="width:14px;height:14px;background:#e05a2b;border-radius:3px;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg)"></div>`,
+      iconSize: [14,14], iconAnchor: [7,7], className: ''
+    });
+    wpts.forEach(w => {
+      L.marker([w.lat, w.lon], { icon: wptIcon })
+        .bindPopup(`<strong>${w.name}</strong>${w.desc ? '<br><span style="font-size:12px;color:#888">' + w.desc + '</span>' : ''}${w.trkptEle !== null ? '<br><span style="font-size:11px;font-family:monospace;color:#aaa">' + Math.round(w.trkptEle) + ' m</span>' : ''}`)
+        .addTo(markerGroup);
+    });
   }
 
 
