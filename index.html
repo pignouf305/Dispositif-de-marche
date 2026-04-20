@@ -261,7 +261,10 @@
     box-shadow: none;
     appearance: none;
     -webkit-appearance: none;
-    
+
+    resize: none;       /* Enlève l'option de redimensionnement */
+    overflow: hidden;   /* Cache la barre de scroll */
+
     /* Gestion de la hauteur et du curseur */
     height: auto;
     line-height: 1.4; /* Ajustez si nécessaire pour aligner avec le texte environnant */
@@ -380,7 +383,7 @@
 
     <div>
       <div id="track-name"></div>
-      <input   type="text"  id="track-date"   class="wpt-desc-input">
+      <textarea id="track-date" class="wpt-desc-input"  rows="1"> A    </textarea>
 
     </div>
 
@@ -472,6 +475,25 @@
   fileInput.addEventListener('change', e => {
     if (e.target.files[0]) processFile(e.target.files[0]);
   });
+
+  document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
+
+  function initTextarea(el) {
+    if (!el || el.tagName !== 'TEXTAREA') return;
+
+    // 1. Fonction interne pour recalculer la hauteur
+    const adjustHeight = () => {
+        el.style.height = 'auto'; // Réinitialise pour permettre de rétrécir si on efface
+        el.style.height = el.scrollHeight + 'px'; // Définit la hauteur exacte du contenu
+    };
+
+    // 2. Écouteur d'événement : se déclenche à chaque frappe (y compris "Entrée")
+    el.addEventListener('input', adjustHeight);
+
+    // 3. Ajustement immédiat (au cas où le texte contient déjà des sauts de ligne)
+    // On utilise un petit timeout pour s'assurer que le rendu CSS est fini
+    setTimeout(adjustHeight, 0);
+}
 
   function showError(msg) {
     errorMsg.textContent = msg;
@@ -729,7 +751,7 @@
           <td><span class="wpt-num">${i+1}</span></td>
           <td>
             <div class="wpt-name">${w.name}</div>
-            <input   type="text"   class="wpt-desc-input" id="descInput${i+1}"  value="${w.desc}"   placeholder="Description..." />
+            <textarea  class="wpt-desc-input" id="descInput${i+1}"  rows="1"  placeholder="Description...">${w.desc} </textarea>
           </td>
           <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
           <td>
@@ -744,6 +766,8 @@
         </tr>`;
       }).join('');
 
+
+      document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
       // Clic sur une ligne → centrer la carte
       wptTbody.querySelectorAll('tr').forEach((row,i) => {
         row.addEventListener('click', () => {
