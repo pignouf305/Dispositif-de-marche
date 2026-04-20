@@ -433,6 +433,11 @@
       PDF
     </button>
 
+    <button class="btn" id="export_Btn" onclick="exportGpx()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
+      GPX
+    </button>
+
     <button class="btn" id="new_Btn" onclick="resetApp()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       Nouveau fichier
@@ -1113,6 +1118,107 @@
     const s    = Math.sin(dLat/2)**2 + Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLon/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
   }
+
+  /**
+   * Fonction utilitaire pour échapper les caractères spéciaux XML (&, <, >, ", ')
+   * Évite de corrompre le fichier si un nom contient "Mont & Vallée" par exemple.
+   */
+  function escapeXml(unsafe) {
+      return unsafe.replace(/[<>&'"]/g, function (c) {
+          switch (c) {
+              case '<': return '&lt;';
+              case '>': return '&gt;';
+              case '&': return '&amp;';
+              case '\'': return '&apos;';
+              case '"': return '&quot;';
+          }
+      });
+  }
+
+
+  window.exportGpx= async function (){
+    const speedInp = document.getElementById('speedInput');
+    const kmeh = speedInp ? parseFloat(speedInp.value) : 4.8;
+    // En-tête XML obligatoire pour un fichier GPX valide
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1" creator="Dispositif de marche ASG" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+        <metadata>
+          <name>${trackName || 'Ma Randonnée'}</name>
+          <time>${new Date().toISOString()}</time>
+          <extensions>
+            <asg><speed>${kmeh || '4.8'}</speed></asg>
+          </extensions>
+        </metadata>
+        <trk>
+          <name>${trackName || 'Ma Randonnée'}</name>
+          <trkseg>
+      `;
+
+    // Ajout des Waypoints (wpts)
+    // On suppose que 'wpts' est votre tableau global contenant {lat, lon, name, desc, cmt, ele, brkT}
+    if (wpts && wpts.length > 0) {
+        wpts.forEach(w => {
+            gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\n`;
+            
+            if (w.name) gpx += `    <name>${escapeXml(w.name)}</name>\n`;
+            if (w.desc) gpx += `    <desc>${escapeXml(w.desc)}</desc>\n`;
+            if (w.cmt)  gpx += `    <cmt>${escapeXml(w.cmt)}</cmt>\n`;
+            
+            if (w.ele !== null && !isNaN(w.ele)) {
+                gpx += `    <ele>${w.ele}</ele>\n`;
+            }
+
+            // Gestion spécifique de votre champ breakTimeMin dans les extensions
+            if (w.brkT && w.brkT > 0) {
+                gpx += `    <extensions>\n`;
+                gpx += `      <asg>\n`;
+                gpx += `        <breakTimeMin>${w.brkT}</breakTimeMin>\n`;
+                gpx += `      </asg>\n`;
+                gpx += `    </extensions>\n`;
+            }
+
+            gpx += `  </wpt>\n`;
+        });
+    }
+
+    // Ajout des points de la trace (pts)
+    // On suppose que 'pts' est votre tableau global contenant {lat, lon, ele}
+    if (pts && pts.length > 0) {
+        pts.forEach(p => {
+            gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}">`;
+            if (p.ele !== null && !isNaN(p.ele)) {
+                gpx += `<ele>${p.ele}</ele>`;
+            }
+            // Optionnel : Ajouter un temps fictif si vous voulez une trace temporelle
+            // gpx += `<time>2023-01-01T10:00:00Z</time>`; 
+            gpx += `</trkpt>\n`;
+        });
+    }
+
+    gpx += `    </trkseg>
+      </trk>
+    `;
+
+    // Fermeture de la balise racine
+    gpx += `</gpx>`;
+
+    // Création du fichier et téléchargement
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    // Nettoyage du nom de fichier (supprime les caractères interdits)
+    const safeName = (trackName || 'export').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    a.download = `${safeName}.gpx`;
+    
+    document.body.appendChild(a);
+    a.click();
+    
+    // Nettoyage
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
 })();
 </script>

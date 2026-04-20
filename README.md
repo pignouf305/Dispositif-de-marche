@@ -17,9 +17,11 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [x] Gestion des pauses
 - [x] Commentaires
 - [x] Export pdf
-- [ ] Export GPX
+- [x] Export GPX
 - [ ] Fix wpt position on pdf
 - [x] Coordonnées suisses
 - [x] ~~Dénivellé positif par étapes~~
 - [ ] Kme dans profil altimétrique
 - [ ] Zoom dans profil altimétrique
+- [x] Ajout waypoint
+- [ ] Edit waypoint
