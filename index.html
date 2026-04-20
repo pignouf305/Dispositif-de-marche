@@ -524,6 +524,32 @@
   window.downloadPdf= async function (){
       var element = document.getElementById('dashboard');
 
+      // On remplace tous les textareas par des divs statiques pour figer la hauteur
+      const textareas = document.querySelectorAll('.wpt-desc-input');
+      const backups = [];
+
+      textareas.forEach((ta, index) => {
+          // Sauvegarde l'élément original et sa hauteur
+          backups.push({
+              el: ta,
+              value: ta.value,
+              nextSibling: ta.nextSibling,
+              parent: ta.parentNode
+          });
+
+          // Création d'un div statique identique visuellement
+          const staticDiv = document.createElement('div');
+          staticDiv.className = 'wpt-desc-input'; // On garde les mêmes classes CSS
+          staticDiv.textContent = ta.value;       // On met le texte
+          staticDiv.style.whiteSpace = 'pre-wrap'; // CRUCIAL : Conserve les sauts de ligne et les espaces
+          
+          // On remplace le textarea par le div dans le DOM
+          ta.parentNode.replaceChild(staticDiv, ta);
+      });
+
+    // Petit délai pour laisser le navigateur faire le rendu du nouveau layout
+    await new Promise(resolve => setTimeout(resolve, 100));
+
       document.getElementById('download_Btn').style.opacity = 0;
       document.getElementById('new_Btn').style.opacity = 0;
       show_hide_column('wpt-table', 4, false)
