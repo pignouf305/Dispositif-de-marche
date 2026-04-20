@@ -499,7 +499,32 @@
     // 3. Ajustement immédiat (au cas où le texte contient déjà des sauts de ligne)
     // On utilise un petit timeout pour s'assurer que le rendu CSS est fini
     setTimeout(adjustHeight, 0);
-}
+  }
+
+  async function debugWithLocalFile() {
+    try {
+        // 1. Récupérer le fichier via une requête HTTP (le fichier doit être dans le projet)
+        const reponse = await fetch('itineraire-demo.gpx');
+        
+        if (!reponse.ok) throw new Error("Fichier de debug introuvable");
+
+        // 2. Convertir la réponse en Blob
+        const blob = await reponse.blob();
+
+        // 3. Transformer le Blob en objet File pour processFile
+        const fichierLocal = new File([blob], "itineraire-demo.gpx", { type: "text/csv" });
+
+        console.log("🚀 Chargement du fichier local itineraire-demo.gpx...");
+        processFile(fichierLocal);
+    } catch (e) {
+        console.error("Erreur debug:", e);
+    }
+  }
+  if (new URLSearchParams(window.location.search).get('debug') === 'true') {
+    console.warn("⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...");
+    debugWithLocalFile();
+  }
+
 
   function showError(msg) {
     errorMsg.textContent = msg;
