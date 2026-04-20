@@ -528,24 +528,32 @@
       const textareas = document.querySelectorAll('.wpt-desc-input');
       const backups = [];
 
-      textareas.forEach((ta, index) => {
-          // Sauvegarde l'élément original et sa hauteur
-          backups.push({
-              el: ta,
-              value: ta.value,
-              nextSibling: ta.nextSibling,
-              parent: ta.parentNode
-          });
+      textareas.forEach((ta) => {
+        // On sauvegarde l'élément original
+        const backupData = {
+            original: ta, 
+            staticDiv: null // On le remplira juste après
+        };
 
-          // Création d'un div statique identique visuellement
-          const staticDiv = document.createElement('div');
-          staticDiv.className = 'wpt-desc-input'; // On garde les mêmes classes CSS
-          staticDiv.textContent = ta.value;       // On met le texte
-          staticDiv.style.whiteSpace = 'pre-wrap'; // CRUCIAL : Conserve les sauts de ligne et les espaces
-          
-          // On remplace le textarea par le div dans le DOM
-          ta.parentNode.replaceChild(staticDiv, ta);
-      });
+        // Création du div statique
+        const staticDiv = document.createElement('div');
+        staticDiv.className = ta.className; // On garde les classes (wpt-desc-input)
+        staticDiv.textContent = ta.value;   // On met le texte
+        
+        // On stocke la référence du div dans notre objet de sauvegarde
+        backupData.staticDiv = staticDiv;
+
+        // On remplace le textarea par le div DANS LE DOM
+        ta.parentNode.replaceChild(staticDiv, ta);
+        
+        // On ajoute à la liste des backups
+        backups.push(backupData);
+    });
+
+    // Petit délai pour laisser le navigateur calculer les nouvelles hauteurs
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    console.log("Backups avant pdf", backups)
 
     // Petit délai pour laisser le navigateur faire le rendu du nouveau layout
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -565,9 +573,20 @@
       } catch (error) {
           console.error('Error:', error.message);
       }              
+
+      // On remet les textareas interactifs à la place des divs
+      backups.forEach((item) => {
+        // item.staticDiv est le div qu'on a créé
+        // item.original est le textarea d'origine
+        if (item.staticDiv && item.staticDiv.parentNode) {
+            item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
+        }
+      });
       show_hide_column('wpt-table', 4, true)
       document.getElementById('download_Btn').style.opacity = 100;
       document.getElementById('new_Btn').style.opacity = 100;
+
+
 };
 
   function processFile(file) {
