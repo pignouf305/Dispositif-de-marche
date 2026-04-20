@@ -755,10 +755,10 @@
     const parseErr = xml.querySelector('parsererror');
     if (parseErr) throw new Error('Le fichier XML est mal formé.');
 
-    const nameEl  = xml.querySelector('trk > name, name');
+    const nameEl  = xml.querySelector('metadata name, name');
     trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
 
-    const firstTime = xml.querySelector('trkpt time');
+    const firstTime = xml.querySelector('metadata time, time');
     dateStr = firstTime
       ? new Date(firstTime.textContent).toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
       : '';
@@ -766,7 +766,7 @@
       ? new Date(firstTime.textContent).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})
       : '08:00';
 
-    const speedEl = xml.querySelector('extensions asg speed');
+    const speedEl = xml.querySelector('metadata extensions asg speed');
     if(speedEl) document.getElementById('speedInput').value=parseFloat(speedEl.textContent) ; 
 
 
