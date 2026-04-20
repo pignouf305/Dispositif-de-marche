@@ -503,6 +503,15 @@
 (function() {
   let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, dateStr = null, startHourStr = null, markerGroup = null;
 
+  // Delay variable to smooth callbacks when editing
+  var delay = (function(){
+    var timer = 0;
+    return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+   };
+  })();
+
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const errorMsg  = document.getElementById('errorMsg');
@@ -895,6 +904,8 @@
         let arrivalStr = '—';
         arrivalClass = 'wpt-arrival interpolated';
 
+        const descInp = document.getElementById('descInput'+(i+1));
+        w.desc = (descInp ? descInp.value : w.desc);
 
         // heure départ + vitesse de marche
         const breakTimeInp = document.getElementById('breakTimeInput'+(i+1));
@@ -947,6 +958,7 @@
           //document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
         document.getElementById(`breakTimeInput${i+1}`).addEventListener('input', renderWptTable);
+        document.getElementById(`descInput${i+1}`).addEventListener('keyup', function() { delay(function() {renderWptTable(); drawMarkers();}, 500 ); });
       });
     }
 
@@ -1007,6 +1019,7 @@
   }
 
   function drawMarkers() {
+    console.log("drawMarkers()")
     // Trkpts
     const lls  = pts.map(p => [p.lat, p.lon]);
     const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
@@ -1099,6 +1112,7 @@
     const s    = Math.sin(dLat/2)**2 + Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLon/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
   }
+
 })();
 </script>
 </body>
