@@ -464,7 +464,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null;
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, dateStr = null, startHourStr = null;
 
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
@@ -520,6 +520,8 @@
         console.error("Erreur debug:", e);
     }
   }
+
+  // Debug : fetch server debug file
   if (new URLSearchParams(window.location.search).get('debug') === 'true') {
     console.warn("⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...");
     debugWithLocalFile();
@@ -629,7 +631,21 @@
     const reader = new FileReader();
     reader.onerror = () => showError('Impossible de lire ce fichier.');
     reader.onload  = e => {
-      try { parseGPX(e.target.result, file.name); }
+      try { 
+        parseGPX(e.target.result, file.name);
+
+        // MàJ affichage
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('track-name').textContent = trackName;
+        document.getElementById('track-date').value = dateStr;
+        
+        processTrack();
+        
+        createMap();
+
+        createChart();
+     }
       catch(err) { showError('Erreur lors de l\'analyse : ' + err.message); }
     };
     reader.readAsText(file);
@@ -643,13 +659,13 @@
     if (parseErr) throw new Error('Le fichier XML est mal formé.');
 
     const nameEl  = xml.querySelector('trk > name, name');
-    const trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
+    trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
 
     const firstTime = xml.querySelector('trkpt time');
-    const dateStr = firstTime
+    dateStr = firstTime
       ? new Date(firstTime.textContent).toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
       : '';
-    const startHourStr = firstTime
+    startHourStr = firstTime
       ? new Date(firstTime.textContent).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})
       : '08:00';
 
@@ -660,18 +676,37 @@
     const trkpts = Array.from(xml.querySelectorAll('trkpt'));
     if (!trkpts.length) throw new Error('Aucun point de trace (trkpt) trouvé dans ce fichier.');
 
-    const pts = trkpts.map(pt => {
+    const wptEls = Array.from(xml.querySelectorAll('wpt'));
+
+    pts = trkpts.map(pt => {
       const lat  = parseFloat(pt.getAttribute('lat'));
       const lon  = parseFloat(pt.getAttribute('lon'));
       const eleEl = pt.querySelector('ele');
       const ele  = eleEl ? parseFloat(eleEl.textContent) : 0;
-      const tEl  = pt.querySelector('time');
-      const time = tEl ? new Date(tEl.textContent) : null;
-      return { lat, lon, ele, time };
+      return { lat, lon, ele };
     }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
 
     if (!pts.length) throw new Error('Les coordonnées GPS sont invalides.');
 
+
+    // ── Waypoints ──
+    wpts = wptEls.map((w, i) => {
+      const lat   = parseFloat(w.getAttribute('lat'));
+      const lon   = parseFloat(w.getAttribute('lon'));
+      const name  = w.querySelector('name')?.textContent.trim() || ('WPT ' + (i+1));
+      const desc  = w.querySelector('desc')?.textContent.trim() || '';
+      const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
+      const eleEl = w.querySelector('ele');
+      const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
+      const timeEl = w.querySelector('extensions asg breakTimeMin');
+      const brkT = timeEl ? parseFloat(timeEl.textContent) : 0;
+      return { lat, lon, name, desc, cmt, ele, brkT };
+    }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
+  }
+
+
+
+  function processTrack() {
 
     // Calculs pour chaque trkpt
     let gainPos = 0, gainNeg = 0, maxSpd = 0;
@@ -696,68 +731,40 @@
     const totalDist = cumDist[cumDist.length - 1];
     const totalDistEffort = cumDistEffort[cumDist.length - 1];
 
-
     const eles = pts.map(p => p.ele);
     const hasEle   = eles.some(e => e !== 0); 
 
 
+    // Update Stats
+    const speedInp = document.getElementById('speedInput');
+    const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+    if (kmeh > 0) {
+      const distKme  = totalDistEffort / 1000;
+      const ms      = (distKme / kmeh) * 3600000;
+      durationDate   = new Date(new Date(0).getTime()+ms);
+      durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+    const stats = [
+      { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
+      { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
+      { label: 'Durée sans pause',      value: durationStr || '—',         unit: '' , accent: true },
+      { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
+    ];
+
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card${s.accent ? ' accent' : ''}">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
+      </div>`).join('');
+
+    document.getElementById('speedInput').addEventListener('input', processTrack);
 
 
-    // MàJ affichage
-    let t0 = new Date();
-    t0.setHours(0, 0, 0, 0);
-    function updateStats() {
-      const speedInp = document.getElementById('speedInput');
-      const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
-      if (kmeh > 0) {
-        const distKme  = totalDistEffort / 1000;
-        const ms      = (distKme / kmeh) * 3600000;
-        durationDate   = new Date(t0.getTime()+ms);
-        durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        }
-
-      document.getElementById('upload-section').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      document.getElementById('track-name').textContent = trackName;
-      document.getElementById('track-date').value = dateStr;
-
-
-      const stats = [
-        { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
-        { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
-        { label: 'Durée',      value: durationStr || '—',         unit: '' , accent: true },
-        { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
-      ];
-
-      document.getElementById('statsGrid').innerHTML = stats.map(s => `
-        <div class="stat-card${s.accent ? ' accent' : ''}">
-          <div class="stat-label">${s.label}</div>
-          <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
-        </div>`).join('');
-  }
-
-  document.getElementById('speedInput').addEventListener('input', updateStats);
-  updateStats();
-
-
-    // ── Waypoints ──
-    const wptEls = Array.from(xml.querySelectorAll('wpt'));
-    const wpts = wptEls.map((w, i) => {
-      const lat   = parseFloat(w.getAttribute('lat'));
-      const lon   = parseFloat(w.getAttribute('lon'));
-      const name  = w.querySelector('name')?.textContent.trim() || ('WPT ' + (i+1));
-      const desc  = w.querySelector('desc')?.textContent.trim() || '';
-      const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
-      const eleEl = w.querySelector('ele');
-      const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
-      const timeEl = w.querySelector('extensions asg breakTimeMin');
-      const brkT = timeEl ? parseFloat(timeEl.textContent) : 0;
-      return { lat, lon, name, desc, cmt, ele, brkT };
-    }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
 
     // Pour chaque waypoint, trouver le trkpt le plus proche
     // et mémoriser son index + distance depuis le départ
@@ -867,7 +874,9 @@
       wptPanel.style.display = 'none';
     }
 
-    // Carte Leaflet
+  }
+
+  function createMap() {
     setTimeout(() => {
 
       // Ajout fonds de carte : https://leaflet-extras.github.io/leaflet-providers/preview/
@@ -927,7 +936,10 @@
           .addTo(mapInst);
       });
     }, 150);
+  }
 
+
+  function createChart() {
     // Sous-échantillonnage pour les graphiques
     const MAX = 400;
     const step = Math.max(1, Math.floor(pts.length / MAX));
@@ -952,6 +964,10 @@
     };
 
     // Graphique altimétrique
+
+    const eles = pts.map(p => p.ele);
+    const hasEle   = eles.some(e => e !== 0); 
+
     if (elevCI) elevCI.destroy();
     if (hasEle) {
       elevCI = new Chart(document.getElementById('elevChart'), {
@@ -977,7 +993,6 @@
     } else {
       document.querySelector('#elevChart').closest('.panel').querySelector('.panel-header').insertAdjacentHTML('afterend', '<p style="padding:1rem;font-size:13px;color:#8a8880;">Pas de données d\'altitude dans ce fichier.</p>');
     }
-
   }
 
   // Formule de Haversine : distance entre deux points GPS (en mètres)
