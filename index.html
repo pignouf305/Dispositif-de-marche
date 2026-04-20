@@ -281,22 +281,22 @@
     
     /* Optionnel : curseur légèrement différent pour indiquer l'action */
     cursor: text; 
-}
-/* 1. Au survol (Hover) : Indique que c'est interactif */
-.wpt-desc-input:hover {
-    background-color: rgba(0, 0, 0, 0.03); /* Très léger fond gris (ajustez l'opacité selon votre thème) */
-    /* Ou si vous préférez un changement de couleur de texte : */
-    /* color: var(--text); */ 
-    border-radius: 4px; /* Arrondit légèrement les angles si fond ajouté */
-    cursor: text; /* Force le curseur texte (I) */
-}
-/* 2. Quand on clique dedans (Focus) : Indique qu'on édite */
-.wpt-desc-input:focus {
-    background-color: rgba(0, 0, 0, 0.05); /* Fond un peu plus visible */
-    color: var(--text); /* Le texte devient plus sombre pour la lecture/édition */
-    border-bottom: 1px solid var(--accent); /* Petite ligne de couleur pour montrer l'activité */
-    outline: none; /* Supprime le contour bleu par défaut du navigateur */
-}
+  }
+  /* 1. Au survol (Hover) : Indique que c'est interactif */
+  .wpt-desc-input:hover {
+      background-color: rgba(0, 0, 0, 0.03); /* Très léger fond gris (ajustez l'opacité selon votre thème) */
+      /* Ou si vous préférez un changement de couleur de texte : */
+      /* color: var(--text); */ 
+      border-radius: 4px; /* Arrondit légèrement les angles si fond ajouté */
+      cursor: text; /* Force le curseur texte (I) */
+  }
+  /* 2. Quand on clique dedans (Focus) : Indique qu'on édite */
+  .wpt-desc-input:focus {
+      background-color: rgba(0, 0, 0, 0.05); /* Fond un peu plus visible */
+      color: var(--text); /* Le texte devient plus sombre pour la lecture/édition */
+      border-bottom: 1px solid var(--accent); /* Petite ligne de couleur pour montrer l'activité */
+      outline: none; /* Supprime le contour bleu par défaut du navigateur */
+  }
 
   .wpt-coord { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   .wpt-ele { font-family: var(--mono); font-size: 12px; }
