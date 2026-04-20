@@ -200,6 +200,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    break-inside: auto; 
   }
   .wpt-table thead tr {
     border-bottom: 1px solid var(--border);
@@ -218,6 +219,11 @@
     padding: 9px 14px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
+  }
+
+  .wpt-table tr {
+    break-inside: avoid;      /* Standard moderne */
+    page-break-inside: avoid; /* Compatibilité anciens navigateurs/imprimantes */
   }
   .wpt-table tbody tr:last-child td { border-bottom: none; }
   .wpt-table tbody tr:hover { background: var(--bg); cursor: pointer; }
