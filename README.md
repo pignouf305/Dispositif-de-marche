@@ -28,7 +28,7 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [x] Export pdf
 - [x] Export GPX
 - [ ] numéro pour marqueurs
-- [ ] Metadonnées (auteurice, num cartes)
+- [x] Metadonnées (auteurice, num cartes)
 - [ ] editer nom marqueur
 - [ ] supprimer marqueur
 - [ ] marqueur dans profil
