@@ -5,10 +5,11 @@
 	<metadata>
 		<name> Itinéraire démo Gantrisch J1 </name>
 		<bounds minlat="46.664000221993774" minlon="7.249590219464153" maxlat="46.71067029796541" maxlon="7.288300157990307" />
+        <time>2026-04-20T14:16:20.084Z</time>
+		<extensions>
+			<asg><speed>5.2</speed></asg>
+		</extensions>
 	</metadata>
-	<extensions>
-		<asg><speed>5.2</speed></asg>
-	</extensions>
 	<wpt lat="46.6840100508976" lon="7.260779745891626">
 		<name>Schatters Shwyberg</name>
 		<desc>Route fermée, détour</desc>
@@ -45,7 +46,6 @@
 		<trkseg>
 			<trkpt lat="46.67059022048488" lon="7.288300157990307">
 				<ele>1047.2699890136719</ele>
- 				<time>2001-11-28T21:05:28Z</time>
 			</trkpt>
 			<trkpt lat="46.670550220645964" lon="7.288050157949328">
 				<ele>1047.0699768066406</ele>

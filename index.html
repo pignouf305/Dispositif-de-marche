@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dispositif de marche GPX</title>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico?">
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 
 <!-- Include html2pdf library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.12.1/html2pdf.bundle.min.js" integrity="sha512-D25Z8/1q2z65ZpJ3NzY6XiPZfwjhbv34OTQHDIZd+KPK+uWCovGt+fMkSzW8ArzCMFUgZt6Cdu7qoXNuy6a2GA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -281,22 +281,22 @@
     
     /* Optionnel : curseur légèrement différent pour indiquer l'action */
     cursor: text; 
-}
-/* 1. Au survol (Hover) : Indique que c'est interactif */
-.wpt-desc-input:hover {
-    background-color: rgba(0, 0, 0, 0.03); /* Très léger fond gris (ajustez l'opacité selon votre thème) */
-    /* Ou si vous préférez un changement de couleur de texte : */
-    /* color: var(--text); */ 
-    border-radius: 4px; /* Arrondit légèrement les angles si fond ajouté */
-    cursor: text; /* Force le curseur texte (I) */
-}
-/* 2. Quand on clique dedans (Focus) : Indique qu'on édite */
-.wpt-desc-input:focus {
-    background-color: rgba(0, 0, 0, 0.05); /* Fond un peu plus visible */
-    color: var(--text); /* Le texte devient plus sombre pour la lecture/édition */
-    border-bottom: 1px solid var(--accent); /* Petite ligne de couleur pour montrer l'activité */
-    outline: none; /* Supprime le contour bleu par défaut du navigateur */
-}
+  }
+  /* 1. Au survol (Hover) : Indique que c'est interactif */
+  .wpt-desc-input:hover {
+      background-color: rgba(0, 0, 0, 0.03); /* Très léger fond gris (ajustez l'opacité selon votre thème) */
+      /* Ou si vous préférez un changement de couleur de texte : */
+      /* color: var(--text); */ 
+      border-radius: 4px; /* Arrondit légèrement les angles si fond ajouté */
+      cursor: text; /* Force le curseur texte (I) */
+  }
+  /* 2. Quand on clique dedans (Focus) : Indique qu'on édite */
+  .wpt-desc-input:focus {
+      background-color: rgba(0, 0, 0, 0.05); /* Fond un peu plus visible */
+      color: var(--text); /* Le texte devient plus sombre pour la lecture/édition */
+      border-bottom: 1px solid var(--accent); /* Petite ligne de couleur pour montrer l'activité */
+      outline: none; /* Supprime le contour bleu par défaut du navigateur */
+  }
 
   .wpt-coord { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   .wpt-ele { font-family: var(--mono); font-size: 12px; }
@@ -333,6 +333,40 @@
   }
   .start-time-bar input[type="time"]:focus { border-color: var(--accent); }
   .start-time-note { font-size: 11px; color: var(--muted); }
+
+  /* Bouton ajout marqueur*/
+  .custom-leaflet-btn {
+      margin-left: auto;
+      margin-right: 0;
+      
+      /* Design */
+      background-color: white;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+      font-family: sans-serif; /* Ou var(--sans) si vous utilisez votre charte */
+  }
+
+  /* Effet au survol */
+  .custom-leaflet-btn:hover {
+      background-color: #f4f4f4;
+      transform: translateY(-1px);
+  }
+
+  /* Effet quand le bouton est actif (mode dessin en cours) */
+  /* Le JS ajoutera la classe 'active' via classList.toggle */
+  .custom-leaflet-btn.active {
+      background-color: #0078A8; /* Couleur primaire Leaflet */
+      color: white;
+      border-color: #005c80;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  }
 
   /* ── Error ── */
   .error-msg {
@@ -389,7 +423,7 @@
 
     <div>
       <div id="track-name"></div>
-      <textarea id="track-date" class="wpt-desc-input"  rows="1"> A    </textarea>
+      <input  id="track-date" type="date"class="wpt-desc-input" value=""/>
 
     </div>
 
@@ -397,6 +431,11 @@
     <button class="btn" id="download_Btn" onclick="downloadPdf()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
       PDF
+    </button>
+
+    <button class="btn" id="export_Btn" onclick="exportGpx()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
+      GPX
     </button>
 
     <button class="btn" id="new_Btn" onclick="resetApp()">
@@ -415,6 +454,7 @@
         Tracé GPS
       </div>
       <div id="map"></div>
+
     </div>
     <div class="panel full-panel">
       <div class="panel-header">
@@ -436,6 +476,9 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       <label for="startTimeInput">Heure de départ estimée :</label>
       <input type="time" id="startTimeInput" value="08:00">
+      <button id="btn-add-marker" class="custom-leaflet-btn">
+      📍 Ajouter un marqueur
+      </button>
 
 
     </div>
@@ -456,7 +499,7 @@
         <tbody id="wpt-tbody"></tbody>
       </table>
     </div>
-  </div>
+  </div>  
 </div>
 
 <!-- Scripts -->
@@ -464,7 +507,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null;
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, trackDate = null, markerGroup = null;
+
+  // Delay variable to smooth callbacks when editing
+  var delay = (function(){
+    var timer = 0;
+    return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+   };
+  })();
 
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
@@ -481,6 +533,7 @@
   fileInput.addEventListener('change', e => {
     if (e.target.files[0]) processFile(e.target.files[0]);
   });
+
 
   document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
 
@@ -499,7 +552,83 @@
     // 3. Ajustement immédiat (au cas où le texte contient déjà des sauts de ligne)
     // On utilise un petit timeout pour s'assurer que le rendu CSS est fini
     setTimeout(adjustHeight, 0);
-}
+  }
+
+  // Bouton add marker
+  const btnAddMarker = document.getElementById('btn-add-marker');
+  let isAddingMarker = false;
+
+  // Gestion du clic sur le bouton
+  btnAddMarker.addEventListener('click', () => {
+      isAddingMarker = !isAddingMarker;
+      
+      btnAddMarker.classList.toggle('active');
+      
+      if (isAddingMarker) {
+          btnAddMarker.textContent = '❌ Annuler';
+          mapInst.getContainer().style.cursor = 'crosshair';
+      } else {
+          btnAddMarker.textContent = '📍 Ajouter un marqueur';
+          mapInst.getContainer().style.cursor = '';
+      }
+      document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Gestion du clic sur la carte
+      mapInst.on("click", function (e) {
+        if (!isAddingMarker) return;
+
+/*        L.marker(e.latlng).addTo(mapInst)
+            .bindPopup(`Nouveau point<br>Lat: ${e.latlng.lat.toFixed(4)}`)//TODO changer pour wpt similaire aux autres
+            .openPopup(); */
+        // Création du nouvel objet avec la même structure
+        const newWpt = {
+          lat: e.latlng.lat,
+          lon: e.latlng.lng,
+          name: "Point Ajouté",
+          desc: "Ajouté manuellement",
+          cmt: "",
+          ele: null,
+          brkT: 0
+        };
+
+        // Ajout au tableau existant
+        wpts.push(newWpt);
+        
+        // Optionnel : désactiver le mode après un seul clic
+        btnAddMarker.click(); 
+
+        processTrack();
+        drawMarkers();
+      });   
+  });
+  
+
+  async function debugWithLocalFile() {
+    try {
+        // 1. Récupérer le fichier via une requête HTTP (le fichier doit être dans le projet)
+        const reponse = await fetch('itineraire-demo.gpx');
+        
+        if (!reponse.ok) throw new Error("Fichier de debug introuvable");
+
+        // 2. Convertir la réponse en Blob
+        const blob = await reponse.blob();
+
+        // 3. Transformer le Blob en objet File pour processFile
+        const fichierLocal = new File([blob], "itineraire-demo.gpx", { type: "text/csv" });
+
+        console.log("🚀 Chargement du fichier local itineraire-demo.gpx...");
+        processFile(fichierLocal);
+    } catch (e) {
+        console.error("Erreur debug:", e);
+    }
+  }
+
+  // Debug : fetch server debug file
+  if (new URLSearchParams(window.location.search).get('debug') === 'true') {
+    console.warn("⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...");
+    debugWithLocalFile();
+  }
+
 
   function showError(msg) {
     errorMsg.textContent = msg;
@@ -529,6 +658,17 @@
   // Bouton download
   window.downloadPdf= async function (){
       var element = document.getElementById('dashboard');
+
+      // On remplace le sélecteur de date par une string formatée.
+      const trackDateEl = document.getElementById('track-date')
+      const textArea = document.createElement('textarea');
+      const currentValue = trackDateEl.value; // Garde la valeur YYYY-MM-DD
+
+      textArea.id = 'track-date'; // On garde le même ID
+      textArea.rows = 1; 
+      textArea.className = trackDateEl.className; // On garde les classes CSS
+      textArea.value = trackDate.toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+      trackDateEl.parentNode.replaceChild(textArea, trackDateEl);
 
       // On remplace tous les textareas par des divs statiques pour figer la hauteur
       const textareas = document.querySelectorAll('.wpt-desc-input');
@@ -564,33 +704,42 @@
     // Petit délai pour laisser le navigateur faire le rendu du nouveau layout
     await new Promise(resolve => setTimeout(resolve, 100));
 
-      document.getElementById('download_Btn').style.opacity = 0;
-      document.getElementById('new_Btn').style.opacity = 0;
-      show_hide_column('wpt-table', 4, false)
-      try {
-          const opt = {
-              margin:       0,
-              filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
-              image:        { type: 'jpeg', quality: 0.98 },
-              html2canvas:  { scale: 2, useCORS: true  },
-              jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
-          await html2pdf().set(opt).from(element).save();
-      } catch (error) {
-          console.error('Error:', error.message);
-      }              
+    document.getElementById('download_Btn').style.opacity = 0;
+    document.getElementById('new_Btn').style.opacity = 0;
+    show_hide_column('wpt-table', 4, false)
+    try {
+        const opt = {
+            margin:       0,
+            filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true  },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+          };
+        await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+        console.error('Error:', error.message);
+    }              
 
-      // On remet les textareas interactifs à la place des divs
-      backups.forEach((item) => {
-        // item.staticDiv est le div qu'on a créé
-        // item.original est le textarea d'origine
-        if (item.staticDiv && item.staticDiv.parentNode) {
-            item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
-        }
-      });
-      show_hide_column('wpt-table', 4, true)
-      document.getElementById('download_Btn').style.opacity = 100;
-      document.getElementById('new_Btn').style.opacity = 100;
+    // On remet les textareas interactifs à la place des divs
+    backups.forEach((item) => {
+      // item.staticDiv est le div qu'on a créé
+      // item.original est le textarea d'origine
+      if (item.staticDiv && item.staticDiv.parentNode) {
+          item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
+      }
+    });
+    show_hide_column('wpt-table', 4, true)
+    document.getElementById('download_Btn').style.opacity = 100;
+    document.getElementById('new_Btn').style.opacity = 100;
+
+    // On restore le sélecteur de date
+    const dateInput = document.createElement('input');
+        
+    dateInput.type = 'date';
+    dateInput.id = textArea.id;
+    dateInput.className = textArea.className;
+    dateInput.value = currentValue;
+    textArea.parentNode.replaceChild(dateInput, textArea);
 
 
 };
@@ -604,7 +753,25 @@
     const reader = new FileReader();
     reader.onerror = () => showError('Impossible de lire ce fichier.');
     reader.onload  = e => {
-      try { parseGPX(e.target.result, file.name); }
+      try { 
+        parseGPX(e.target.result, file.name);
+
+        // MàJ affichage
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('track-name').textContent = trackName;
+        document.getElementById('track-date').value = trackDate.getFullYear() + '-' + String(trackDate.getMonth() + 1).padStart(2, '0') + '-' + String(trackDate.getDate()).padStart(2, '0');
+        document.getElementById("track-date").addEventListener("change", function() {
+            var input = this.value;
+            trackDate = new Date(input);
+        });
+        
+        processTrack();
+        
+        createMap();
+
+        createChart();
+     }
       catch(err) { showError('Erreur lors de l\'analyse : ' + err.message); }
     };
     reader.readAsText(file);
@@ -617,36 +784,48 @@
     const parseErr = xml.querySelector('parsererror');
     if (parseErr) throw new Error('Le fichier XML est mal formé.');
 
-    const nameEl  = xml.querySelector('trk > name, name');
-    const trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
+    const nameEl  = xml.querySelector('metadata name, name');
+    trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
+    trackDate = xml.querySelector('metadata time, time') ? new Date(xml.querySelector('metadata time, time').textContent) : new Date();
 
-    const firstTime = xml.querySelector('trkpt time');
-    const dateStr = firstTime
-      ? new Date(firstTime.textContent).toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
-      : '';
-    const startHourStr = firstTime
-      ? new Date(firstTime.textContent).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})
-      : '08:00';
-
-    const speedEl = xml.querySelector('extensions asg speed');
+    const speedEl = xml.querySelector('metadata extensions asg speed');
     if(speedEl) document.getElementById('speedInput').value=parseFloat(speedEl.textContent) ; 
 
 
     const trkpts = Array.from(xml.querySelectorAll('trkpt'));
     if (!trkpts.length) throw new Error('Aucun point de trace (trkpt) trouvé dans ce fichier.');
 
-    const pts = trkpts.map(pt => {
+    const wptEls = Array.from(xml.querySelectorAll('wpt'));
+
+    pts = trkpts.map(pt => {
       const lat  = parseFloat(pt.getAttribute('lat'));
       const lon  = parseFloat(pt.getAttribute('lon'));
       const eleEl = pt.querySelector('ele');
       const ele  = eleEl ? parseFloat(eleEl.textContent) : 0;
-      const tEl  = pt.querySelector('time');
-      const time = tEl ? new Date(tEl.textContent) : null;
-      return { lat, lon, ele, time };
+      return { lat, lon, ele };
     }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
 
     if (!pts.length) throw new Error('Les coordonnées GPS sont invalides.');
 
+
+    // ── Waypoints ──
+    wpts = wptEls.map((w, i) => {
+      const lat   = parseFloat(w.getAttribute('lat'));
+      const lon   = parseFloat(w.getAttribute('lon'));
+      const name  = w.querySelector('name')?.textContent.trim() || ('WPT ' + (i+1));
+      const desc  = w.querySelector('desc')?.textContent.trim() || '';
+      const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
+      const eleEl = w.querySelector('ele');
+      const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
+      const timeEl = w.querySelector('extensions asg breakTimeMin');
+      const brkT = timeEl ? parseFloat(timeEl.textContent) : 0;
+      return { lat, lon, name, desc, cmt, ele, brkT };
+    }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
+  }
+
+
+
+  function processTrack() {
 
     // Calculs pour chaque trkpt
     let gainPos = 0, gainNeg = 0, maxSpd = 0;
@@ -671,68 +850,40 @@
     const totalDist = cumDist[cumDist.length - 1];
     const totalDistEffort = cumDistEffort[cumDist.length - 1];
 
-
     const eles = pts.map(p => p.ele);
     const hasEle   = eles.some(e => e !== 0); 
 
 
+    // Update Stats
+    const speedInp = document.getElementById('speedInput');
+    const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+    if (kmeh > 0) {
+      const distKme  = totalDistEffort / 1000;
+      const ms      = (distKme / kmeh) * 3600000;
+      durationDate   = new Date(new Date(0).getTime()+ms);
+      durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+    const stats = [
+      { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
+      { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
+      { label: 'Durée sans pause',      value: durationStr || '—',         unit: '' , accent: true },
+      { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
+    ];
+
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card${s.accent ? ' accent' : ''}">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
+      </div>`).join('');
+
+    document.getElementById('speedInput').addEventListener('input', processTrack);
 
 
-    // MàJ affichage
-    let t0 = new Date();
-    t0.setHours(0, 0, 0, 0);
-    function updateStats() {
-      const speedInp = document.getElementById('speedInput');
-      const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
-      if (kmeh > 0) {
-        const distKme  = totalDistEffort / 1000;
-        const ms      = (distKme / kmeh) * 3600000;
-        durationDate   = new Date(t0.getTime()+ms);
-        durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        }
-
-      document.getElementById('upload-section').style.display = 'none';
-      document.getElementById('dashboard').style.display = 'block';
-      document.getElementById('track-name').textContent = trackName;
-      document.getElementById('track-date').value = dateStr;
-
-
-      const stats = [
-        { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
-        { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
-        { label: 'Durée',      value: durationStr || '—',         unit: '' , accent: true },
-        { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
-        { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
-      ];
-
-      document.getElementById('statsGrid').innerHTML = stats.map(s => `
-        <div class="stat-card${s.accent ? ' accent' : ''}">
-          <div class="stat-label">${s.label}</div>
-          <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
-        </div>`).join('');
-  }
-
-  document.getElementById('speedInput').addEventListener('input', updateStats);
-  updateStats();
-
-
-    // ── Waypoints ──
-    const wptEls = Array.from(xml.querySelectorAll('wpt'));
-    const wpts = wptEls.map((w, i) => {
-      const lat   = parseFloat(w.getAttribute('lat'));
-      const lon   = parseFloat(w.getAttribute('lon'));
-      const name  = w.querySelector('name')?.textContent.trim() || ('WPT ' + (i+1));
-      const desc  = w.querySelector('desc')?.textContent.trim() || '';
-      const cmt   = w.querySelector('cmt')?.textContent.trim()  || '';
-      const eleEl = w.querySelector('ele');
-      const ele   = eleEl ? parseFloat(eleEl.textContent) : null;
-      const timeEl = w.querySelector('extensions asg breakTimeMin');
-      const brkT = timeEl ? parseFloat(timeEl.textContent) : 0;
-      return { lat, lon, name, desc, cmt, ele, brkT };
-    }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
 
     // Pour chaque waypoint, trouver le trkpt le plus proche
     // et mémoriser son index + distance depuis le départ
@@ -757,7 +908,7 @@
     const wptCount  = document.getElementById('wpt-count');
     const startBar  = document.getElementById('start-time-bar');
     const startInp  = document.getElementById('startTimeInput');
-    startInp.value = startHourStr;
+    startInp.value = trackDate ? new Date(trackDate).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'}) : '08:00';
 
     // Fonction qui calcule et affiche les heures d'arrivée
     function renderWptTable() {
@@ -776,6 +927,8 @@
         let arrivalStr = '—';
         arrivalClass = 'wpt-arrival interpolated';
 
+        const descInp = document.getElementById('descInput'+(i+1));
+        w.desc = (descInp ? descInp.value : w.desc);
 
         // heure départ + vitesse de marche
         const breakTimeInp = document.getElementById('breakTimeInput'+(i+1));
@@ -817,6 +970,14 @@
         </tr>`;
       }).join('');
 
+      function  onWptClick(event) {
+        const wptNumber = this.id.split("breakTimeInput")[1]-1;
+        delay(function() {  
+          wpts[wptNumber].brkT = document.getElementById(`breakTimeInput${wptNumber+1}`).value;
+          renderWptTable();
+          }, 200 ); 
+  }
+
 
       document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
       // Clic sur une ligne → centrer la carte
@@ -827,7 +988,8 @@
           if (mapInst) { mapInst.setView([lat, lon], 15); }
           //document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
-        document.getElementById(`breakTimeInput${i+1}`).addEventListener('input', renderWptTable);
+        document.getElementById(`breakTimeInput${i+1}`).addEventListener('input',onWptClick);
+        document.getElementById(`descInput${i+1}`).addEventListener('keyup', function() { delay(function() {renderWptTable(); drawMarkers();}, 500 ); });
       });
     }
 
@@ -835,14 +997,16 @@
       wptPanel.style.display = 'block';
       wptCount.textContent = '(' + wpts.length + ')';
 
-      document.getElementById('startTimeInput').addEventListener('input', renderWptTable);
-      document.getElementById('speedInput').addEventListener('input', renderWptTable);
+      document.getElementById('startTimeInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
+      document.getElementById('speedInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
       renderWptTable();
     } else {
       wptPanel.style.display = 'none';
     }
 
-    // Carte Leaflet
+  }
+
+  function createMap() {
     setTimeout(() => {
 
       // Ajout fonds de carte : https://leaflet-extras.github.io/leaflet-providers/preview/
@@ -880,29 +1044,40 @@
         };
       L.control.layers(baseLayers, null,null).addTo(mapInst);
 
-      const lls  = pts.map(p => [p.lat, p.lon]);
-      const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
-      mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
-
-      const mkIcon = (bg) => L.divIcon({
-        html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
-        iconSize: [12,12], iconAnchor: [6,6], className: ''
-      });
-      L.marker(lls[0],            { icon: mkIcon('#1a9e6e') }).bindPopup('Départ').addTo(mapInst);
-      L.marker(lls[lls.length-1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée').addTo(mapInst);
-
-      // Marqueurs waypoints sur la carte
-      const wptIcon = L.divIcon({
-        html: `<div style="width:14px;height:14px;background:#e05a2b;border-radius:3px;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg)"></div>`,
-        iconSize: [14,14], iconAnchor: [7,7], className: ''
-      });
-      wpts.forEach(w => {
-        L.marker([w.lat, w.lon], { icon: wptIcon })
-          .bindPopup(`<strong>${w.name}</strong>${w.desc ? '<br><span style="font-size:12px;color:#888">' + w.desc + '</span>' : ''}${w.ele !== null ? '<br><span style="font-size:11px;font-family:monospace;color:#aaa">' + Math.round(w.ele) + ' m</span>' : ''}`)
-          .addTo(mapInst);
-      });
+      markerGroup = L.layerGroup().addTo(mapInst);  
+      drawMarkers();
     }, 150);
+  }
 
+  function drawMarkers() {
+    // Trkpts
+    const lls  = pts.map(p => [p.lat, p.lon]);
+    const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
+    mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+
+    // Wpts
+    markerGroup.clearLayers();
+    const mkIcon = (bg) => L.divIcon({
+      html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+      iconSize: [12,12], iconAnchor: [6,6], className: ''
+    });
+    L.marker(lls[0],            { icon: mkIcon('#1a9e6e') }).bindPopup('Départ').addTo(markerGroup);
+    L.marker(lls[lls.length-1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée').addTo(markerGroup);
+
+    // Marqueurs waypoints sur la carte
+    const wptIcon = L.divIcon({
+      html: `<div style="width:14px;height:14px;background:#e05a2b;border-radius:3px;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg)"></div>`,
+      iconSize: [14,14], iconAnchor: [7,7], className: ''
+    });
+    wpts.forEach(w => {
+      L.marker([w.lat, w.lon], { icon: wptIcon })
+        .bindPopup(`<strong>${w.name}</strong>${w.desc ? '<br><span style="font-size:12px;color:#888">' + w.desc + '</span>' : ''}${w.trkptEle !== null ? '<br><span style="font-size:11px;font-family:monospace;color:#aaa">' + Math.round(w.trkptEle) + ' m</span>' : ''}`)
+        .addTo(markerGroup);
+    });
+  }
+
+
+  function createChart() {
     // Sous-échantillonnage pour les graphiques
     const MAX = 400;
     const step = Math.max(1, Math.floor(pts.length / MAX));
@@ -927,6 +1102,10 @@
     };
 
     // Graphique altimétrique
+
+    const eles = pts.map(p => p.ele);
+    const hasEle   = eles.some(e => e !== 0); 
+
     if (elevCI) elevCI.destroy();
     if (hasEle) {
       elevCI = new Chart(document.getElementById('elevChart'), {
@@ -952,7 +1131,6 @@
     } else {
       document.querySelector('#elevChart').closest('.panel').querySelector('.panel-header').insertAdjacentHTML('afterend', '<p style="padding:1rem;font-size:13px;color:#8a8880;">Pas de données d\'altitude dans ce fichier.</p>');
     }
-
   }
 
   // Formule de Haversine : distance entre deux points GPS (en mètres)
@@ -964,6 +1142,107 @@
     const s    = Math.sin(dLat/2)**2 + Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLon/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
   }
+
+  /**
+   * Fonction utilitaire pour échapper les caractères spéciaux XML (&, <, >, ", ')
+   * Évite de corrompre le fichier si un nom contient "Mont & Vallée" par exemple.
+   */
+  function escapeXml(unsafe) {
+      return unsafe.replace(/[<>&'"]/g, function (c) {
+          switch (c) {
+              case '<': return '&lt;';
+              case '>': return '&gt;';
+              case '&': return '&amp;';
+              case '\'': return '&apos;';
+              case '"': return '&quot;';
+          }
+      });
+  }
+
+
+  window.exportGpx= async function (){
+    const speedInp = document.getElementById('speedInput');
+    const kmeh = speedInp ? parseFloat(speedInp.value) : 4.8;
+    // En-tête XML obligatoire pour un fichier GPX valide
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+      <gpx version="1.1" creator="Dispositif de marche ASG" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+        <metadata>
+          <name>${trackName || 'Ma Randonnée'}</name>
+          <time>${trackDate.toISOString()}</time>
+          <extensions>
+            <asg><speed>${kmeh || '4.8'}</speed></asg>
+          </extensions>
+        </metadata>
+        <trk>
+          <name>${trackName || 'Ma Randonnée'}</name>
+          <trkseg>
+      `;
+
+    // Ajout des Waypoints (wpts)
+    // On suppose que 'wpts' est le tableau global contenant {lat, lon, name, desc, cmt, ele, brkT}
+    if (wpts && wpts.length > 0) {
+        wpts.forEach(w => {
+            gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\n`;
+            
+            if (w.name) gpx += `    <name>${escapeXml(w.name)}</name>\n`;
+            if (w.desc) gpx += `    <desc>${escapeXml(w.desc)}</desc>\n`;
+            if (w.cmt)  gpx += `    <cmt>${escapeXml(w.cmt)}</cmt>\n`;
+            
+            if (w.ele !== null && !isNaN(w.ele)) {
+                gpx += `    <ele>${w.ele}</ele>\n`;
+            }
+
+            // Gestion spécifique du champ breakTimeMin dans les extensions
+            if (w.brkT && w.brkT > 0) {
+                gpx += `    <extensions>\n`;
+                gpx += `      <asg>\n`;
+                gpx += `        <breakTimeMin>${w.brkT}</breakTimeMin>\n`;
+                gpx += `      </asg>\n`;
+                gpx += `    </extensions>\n`;
+            }
+
+            gpx += `  </wpt>\n`;
+        });
+    }
+
+    // Ajout des points de la trace (pts)
+    if (pts && pts.length > 0) {
+        pts.forEach(p => {
+            gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}">`;
+            if (p.ele !== null && !isNaN(p.ele)) {
+                gpx += `<ele>${p.ele}</ele>`;
+            }
+            // Optionnel 
+            // gpx += `<time>2023-01-01T10:00:00Z</time>`; 
+            gpx += `</trkpt>\n`;
+        });
+    }
+
+    gpx += `    </trkseg>
+      </trk>
+    `;
+
+    // Fermeture de la balise racine
+    gpx += `</gpx>`;
+
+    // Création du fichier et téléchargement
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    // Nettoyage du nom de fichier (supprime les caractères interdits)
+    const safeName = (trackName || 'export').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    a.download = `${safeName}.gpx`;
+    
+    document.body.appendChild(a);
+    a.click();
+    
+    // Nettoyage
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 })();
 </script>
 </body>

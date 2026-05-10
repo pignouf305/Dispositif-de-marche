@@ -13,13 +13,25 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 
 ## To do
 
+### Bugs
+
+- [x] Fix date perénité + new wpt desc
+- [ ] tracé décalé dans pdf
+- [ ] affichage carte sur header
+- [ ] altitude zoomée sur export
+
+### Fonctionnalités
+
 - [x] Gestion d'autres couches (swisstopo, IGN, etc.)
 - [x] Gestion des pauses
 - [x] Commentaires
 - [x] Export pdf
-- [ ] Export GPX
-- [ ] Fix wpt position on pdf
-- [x] Coordonnées suisses
-- [x] ~~Dénivellé positif par étapes~~
-- [ ] Kme dans profil altimétrique
-- [ ] Zoom dans profil altimétrique
+- [x] Export GPX
+- [ ] numéro pour marqueurs
+- [ ] Metadonnées (auteurice, num cartes)
+- [ ] editer nom marqueur
+- [ ] supprimer marqueur
+- [ ] marqueur dans profil
+- [ ] kme dans profil
+- [ ] zoom dans profil
+
