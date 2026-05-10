@@ -659,6 +659,17 @@
   window.downloadPdf= async function (){
       var element = document.getElementById('dashboard');
 
+      // On remplace le sélecteur de date par une string formatée.
+      const trackDateEl = document.getElementById('track-date')
+      const textArea = document.createElement('textarea');
+      const currentValue = trackDateEl.value; // Garde la valeur YYYY-MM-DD
+
+      textArea.id = 'track-date'; // On garde le même ID
+      textArea.rows = 1; 
+      textArea.className = trackDateEl.className; // On garde les classes CSS
+      textArea.value = trackDate.toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+      trackDateEl.parentNode.replaceChild(textArea, trackDateEl);
+
       // On remplace tous les textareas par des divs statiques pour figer la hauteur
       const textareas = document.querySelectorAll('.wpt-desc-input');
       const backups = [];
@@ -693,33 +704,42 @@
     // Petit délai pour laisser le navigateur faire le rendu du nouveau layout
     await new Promise(resolve => setTimeout(resolve, 100));
 
-      document.getElementById('download_Btn').style.opacity = 0;
-      document.getElementById('new_Btn').style.opacity = 0;
-      show_hide_column('wpt-table', 4, false)
-      try {
-          const opt = {
-              margin:       0,
-              filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
-              image:        { type: 'jpeg', quality: 0.98 },
-              html2canvas:  { scale: 2, useCORS: true  },
-              jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
-          await html2pdf().set(opt).from(element).save();
-      } catch (error) {
-          console.error('Error:', error.message);
-      }              
+    document.getElementById('download_Btn').style.opacity = 0;
+    document.getElementById('new_Btn').style.opacity = 0;
+    show_hide_column('wpt-table', 4, false)
+    try {
+        const opt = {
+            margin:       0,
+            filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true  },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+          };
+        await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+        console.error('Error:', error.message);
+    }              
 
-      // On remet les textareas interactifs à la place des divs
-      backups.forEach((item) => {
-        // item.staticDiv est le div qu'on a créé
-        // item.original est le textarea d'origine
-        if (item.staticDiv && item.staticDiv.parentNode) {
-            item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
-        }
-      });
-      show_hide_column('wpt-table', 4, true)
-      document.getElementById('download_Btn').style.opacity = 100;
-      document.getElementById('new_Btn').style.opacity = 100;
+    // On remet les textareas interactifs à la place des divs
+    backups.forEach((item) => {
+      // item.staticDiv est le div qu'on a créé
+      // item.original est le textarea d'origine
+      if (item.staticDiv && item.staticDiv.parentNode) {
+          item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
+      }
+    });
+    show_hide_column('wpt-table', 4, true)
+    document.getElementById('download_Btn').style.opacity = 100;
+    document.getElementById('new_Btn').style.opacity = 100;
+
+    // On restore le sélecteur de date
+    const dateInput = document.createElement('input');
+        
+    dateInput.type = 'date';
+    dateInput.id = textArea.id;
+    dateInput.className = textArea.className;
+    dateInput.value = currentValue;
+    textArea.parentNode.replaceChild(dateInput, textArea);
 
 
 };
