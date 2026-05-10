@@ -764,8 +764,6 @@
         document.getElementById("track-date").addEventListener("change", function() {
             var input = this.value;
             trackDate = new Date(input);
-            console.log(input); //e.g. 2015-11-13
-            console.log(trackDate); //e.g. Fri Nov 13 2015 00:00:00 GMT+0000 (GMT Standard Time)
         });
         
         processTrack();
@@ -972,6 +970,14 @@
         </tr>`;
       }).join('');
 
+      function  onWptClick(event) {
+        const wptNumber = this.id.split("breakTimeInput")[1]-1;
+        delay(function() {  
+          wpts[wptNumber].brkT = document.getElementById(`breakTimeInput${wptNumber+1}`).value;
+          renderWptTable();
+          }, 200 ); 
+  }
+
 
       document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
       // Clic sur une ligne → centrer la carte
@@ -982,7 +988,7 @@
           if (mapInst) { mapInst.setView([lat, lon], 15); }
           //document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
-        document.getElementById(`breakTimeInput${i+1}`).addEventListener('input', renderWptTable);
+        document.getElementById(`breakTimeInput${i+1}`).addEventListener('input',onWptClick);
         document.getElementById(`descInput${i+1}`).addEventListener('keyup', function() { delay(function() {renderWptTable(); drawMarkers();}, 500 ); });
       });
     }
@@ -991,8 +997,8 @@
       wptPanel.style.display = 'block';
       wptCount.textContent = '(' + wpts.length + ')';
 
-      document.getElementById('startTimeInput').addEventListener('input', renderWptTable);
-      document.getElementById('speedInput').addEventListener('input', renderWptTable);
+      document.getElementById('startTimeInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
+      document.getElementById('speedInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
       renderWptTable();
     } else {
       wptPanel.style.display = 'none';
@@ -1173,7 +1179,7 @@
       `;
 
     // Ajout des Waypoints (wpts)
-    // On suppose que 'wpts' est votre tableau global contenant {lat, lon, name, desc, cmt, ele, brkT}
+    // On suppose que 'wpts' est le tableau global contenant {lat, lon, name, desc, cmt, ele, brkT}
     if (wpts && wpts.length > 0) {
         wpts.forEach(w => {
             gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\n`;
@@ -1186,7 +1192,7 @@
                 gpx += `    <ele>${w.ele}</ele>\n`;
             }
 
-            // Gestion spécifique de votre champ breakTimeMin dans les extensions
+            // Gestion spécifique du champ breakTimeMin dans les extensions
             if (w.brkT && w.brkT > 0) {
                 gpx += `    <extensions>\n`;
                 gpx += `      <asg>\n`;
@@ -1200,14 +1206,13 @@
     }
 
     // Ajout des points de la trace (pts)
-    // On suppose que 'pts' est votre tableau global contenant {lat, lon, ele}
     if (pts && pts.length > 0) {
         pts.forEach(p => {
             gpx += `      <trkpt lat="${p.lat}" lon="${p.lon}">`;
             if (p.ele !== null && !isNaN(p.ele)) {
                 gpx += `<ele>${p.ele}</ele>`;
             }
-            // Optionnel : Ajouter un temps fictif si vous voulez une trace temporelle
+            // Optionnel 
             // gpx += `<time>2023-01-01T10:00:00Z</time>`; 
             gpx += `</trkpt>\n`;
         });
