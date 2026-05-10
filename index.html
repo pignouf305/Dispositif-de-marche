@@ -423,7 +423,7 @@
 
     <div>
       <div id="track-name"></div>
-      <textarea id="track-date" class="wpt-desc-input"  rows="1"> A    </textarea>
+      <input  id="track-date" type="date"class="wpt-desc-input" value=""/>
 
     </div>
 
@@ -507,7 +507,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, dateStr = null, startHourStr = null, markerGroup = null;
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, trackDate = null, markerGroup = null;
 
   // Delay variable to smooth callbacks when editing
   var delay = (function(){
@@ -740,7 +740,13 @@
         document.getElementById('upload-section').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         document.getElementById('track-name').textContent = trackName;
-        document.getElementById('track-date').value = dateStr;
+        document.getElementById('track-date').value = trackDate.getFullYear() + '-' + String(trackDate.getMonth() + 1).padStart(2, '0') + '-' + String(trackDate.getDate()).padStart(2, '0');
+        document.getElementById("track-date").addEventListener("change", function() {
+            var input = this.value;
+            trackDate = new Date(input);
+            console.log(input); //e.g. 2015-11-13
+            console.log(trackDate); //e.g. Fri Nov 13 2015 00:00:00 GMT+0000 (GMT Standard Time)
+        });
         
         processTrack();
         
@@ -762,14 +768,7 @@
 
     const nameEl  = xml.querySelector('metadata name, name');
     trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
-
-    const firstTime = xml.querySelector('metadata time, time');
-    dateStr = firstTime
-      ? new Date(firstTime.textContent).toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
-      : new Date().toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-    startHourStr = firstTime
-      ? new Date(firstTime.textContent).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})
-      : '08:00';
+    trackDate = xml.querySelector('metadata time, time') ? new Date(xml.querySelector('metadata time, time').textContent) : new Date();
 
     const speedEl = xml.querySelector('metadata extensions asg speed');
     if(speedEl) document.getElementById('speedInput').value=parseFloat(speedEl.textContent) ; 
@@ -891,7 +890,7 @@
     const wptCount  = document.getElementById('wpt-count');
     const startBar  = document.getElementById('start-time-bar');
     const startInp  = document.getElementById('startTimeInput');
-    startInp.value = startHourStr;
+    startInp.value = trackDate ? new Date(trackDate).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'}) : '08:00';
 
     // Fonction qui calcule et affiche les heures d'arrivée
     function renderWptTable() {
@@ -1025,7 +1024,6 @@
   }
 
   function drawMarkers() {
-    console.log("drawMarkers()")
     // Trkpts
     const lls  = pts.map(p => [p.lat, p.lon]);
     const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }).addTo(mapInst);
@@ -1144,7 +1142,7 @@
       <gpx version="1.1" creator="Dispositif de marche ASG" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
         <metadata>
           <name>${trackName || 'Ma Randonnée'}</name>
-          <time>${new Date().toISOString()}</time>
+          <time>${trackDate.toISOString()}</time>
           <extensions>
             <asg><speed>${kmeh || '4.8'}</speed></asg>
           </extensions>
