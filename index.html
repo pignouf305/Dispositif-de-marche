@@ -419,6 +419,7 @@
       <input type="number" id="speedInput" value="4.6" min="0.2" max="30" step="0.2"
         style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;">
       <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">kme/h</span>
+      <textarea  id="track-author" class="wpt-desc-input" rows=1 placeholder="Auteur·ice..."></textarea>
     </div>
 
     <div>
@@ -507,7 +508,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, trackDate = null, markerGroup = null;
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, trackDate = null, markerGroup = null, trackAuthor = null;
 
   // Delay variable to smooth callbacks when editing
   var delay = (function(){
@@ -760,6 +761,7 @@
         document.getElementById('upload-section').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         document.getElementById('track-name').textContent = trackName;
+        document.getElementById('track-author').value = trackAuthor;
         document.getElementById('track-date').value = trackDate.getFullYear() + '-' + String(trackDate.getMonth() + 1).padStart(2, '0') + '-' + String(trackDate.getDate()).padStart(2, '0');
         document.getElementById("track-date").addEventListener("change", function() {
             var input = this.value;
@@ -787,6 +789,8 @@
     const nameEl  = xml.querySelector('metadata name, name');
     trackName = nameEl ? nameEl.textContent.trim() : filename.replace(/\.gpx$/i, '');
     trackDate = xml.querySelector('metadata time, time') ? new Date(xml.querySelector('metadata time, time').textContent) : new Date();
+
+    trackAuthor =  xml.querySelector('metadata author, author') ? xml.querySelector('metadata author, author').textContent : '';
 
     const speedEl = xml.querySelector('metadata extensions asg speed');
     if(speedEl) document.getElementById('speedInput').value=parseFloat(speedEl.textContent) ; 
@@ -999,6 +1003,7 @@
 
       document.getElementById('startTimeInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
       document.getElementById('speedInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
+      document.getElementById('track-author').addEventListener('input', function() { trackAuthor = this.value; console.log(trackAuthor) });
       renderWptTable();
     } else {
       wptPanel.style.display = 'none';
@@ -1169,6 +1174,7 @@
         <metadata>
           <name>${trackName || 'Ma Randonnée'}</name>
           <time>${trackDate.toISOString()}</time>
+          <author>${trackAuthor}</author>
           <extensions>
             <asg><speed>${kmeh || '4.8'}</speed></asg>
           </extensions>
