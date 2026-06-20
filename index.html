@@ -508,127 +508,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
 (function() {
-  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, trackDate = null, markerGroup = null, trackAuthor = null;
-
-  // Delay variable to smooth callbacks when editing
-  var delay = (function(){
-    var timer = 0;
-    return function(callback, ms){
-    clearTimeout (timer);
-    timer = setTimeout(callback, ms);
-   };
-  })();
-
-  const dropZone = document.getElementById('dropZone');
-  const fileInput = document.getElementById('fileInput');
-  const errorMsg  = document.getElementById('errorMsg');
-
-  // Drag & drop
-  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault(); dropZone.classList.remove('drag-over');
-    const f = e.dataTransfer.files[0];
-    if (f) processFile(f);
-  });
-  fileInput.addEventListener('change', e => {
-    if (e.target.files[0]) processFile(e.target.files[0]);
-  });
-
-
-  document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
-
-  function initTextarea(el) {
-    if (!el || el.tagName !== 'TEXTAREA') return;
-
-    // 1. Fonction interne pour recalculer la hauteur
-    const adjustHeight = () => {
-        el.style.height = 'auto'; // Réinitialise pour permettre de rétrécir si on efface
-        el.style.height = el.scrollHeight + 'px'; // Définit la hauteur exacte du contenu
-    };
-
-    // 2. Écouteur d'événement : se déclenche à chaque frappe (y compris "Entrée")
-    el.addEventListener('input', adjustHeight);
-
-    // 3. Ajustement immédiat (au cas où le texte contient déjà des sauts de ligne)
-    // On utilise un petit timeout pour s'assurer que le rendu CSS est fini
-    setTimeout(adjustHeight, 0);
-  }
-
-  // Bouton add marker
-  const btnAddMarker = document.getElementById('btn-add-marker');
-  let isAddingMarker = false;
-
-  // Gestion du clic sur le bouton
-  btnAddMarker.addEventListener('click', () => {
-      isAddingMarker = !isAddingMarker;
-      
-      btnAddMarker.classList.toggle('active');
-      
-      if (isAddingMarker) {
-          btnAddMarker.textContent = '❌ Annuler';
-          mapInst.getContainer().style.cursor = 'crosshair';
-      } else {
-          btnAddMarker.textContent = '📍 Ajouter un marqueur';
-          mapInst.getContainer().style.cursor = '';
-      }
-      document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-      // Gestion du clic sur la carte
-      mapInst.on("click", function (e) {
-        if (!isAddingMarker) return;
-
-/*        L.marker(e.latlng).addTo(mapInst)
-            .bindPopup(`Nouveau point<br>Lat: ${e.latlng.lat.toFixed(4)}`)//TODO changer pour wpt similaire aux autres
-            .openPopup(); */
-        // Création du nouvel objet avec la même structure
-        const newWpt = {
-          lat: e.latlng.lat,
-          lon: e.latlng.lng,
-          name: "Point Ajouté",
-          desc: "Ajouté manuellement",
-          cmt: "",
-          ele: null,
-          brkT: 0
-        };
-
-        // Ajout au tableau existant
-        wpts.push(newWpt);
-        
-        // Optionnel : désactiver le mode après un seul clic
-        btnAddMarker.click(); 
-
-        processTrack();
-        drawMarkers();
-      });   
-  });
-  
-
-  async function debugWithLocalFile() {
-    try {
-        // 1. Récupérer le fichier via une requête HTTP (le fichier doit être dans le projet)
-        const reponse = await fetch('itineraire-demo.gpx');
-        
-        if (!reponse.ok) throw new Error("Fichier de debug introuvable");
-
-        // 2. Convertir la réponse en Blob
-        const blob = await reponse.blob();
-
-        // 3. Transformer le Blob en objet File pour processFile
-        const fichierLocal = new File([blob], "itineraire-demo.gpx", { type: "text/csv" });
-
-        console.log("🚀 Chargement du fichier local itineraire-demo.gpx...");
-        processFile(fichierLocal);
-    } catch (e) {
-        console.error("Erreur debug:", e);
-    }
-  }
-
-  // Debug : fetch server debug file
-  if (new URLSearchParams(window.location.search).get('debug') === 'true') {
-    console.warn("⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...");
-    debugWithLocalFile();
-  }
+  let mapInst = null, elevCI = null, speedCI = null, wptTbody = null, pts =null, wpts = null, trackName = null, trackDate = null, markerGroup = null, trackAuthor = null, isAddingMarker = false;
 
 
   function showError(msg) {
@@ -636,114 +516,6 @@
     errorMsg.style.display = 'block';
   }
 
-  window.resetApp = function() {
-    document.getElementById('upload-section').style.display = 'flex';
-    document.getElementById('dashboard').style.display = 'none';
-    errorMsg.style.display = 'none';
-    fileInput.value = '';
-    if (mapInst)  { mapInst.remove();   mapInst  = null; }
-    if (elevCI)   { elevCI.destroy();   elevCI   = null; }
-    if (speedCI)  { speedCI.destroy();  speedCI  = null; }
-    if (wptTbody)  { wptTbody.innerHTML = '' }
-  };
-  
-  function show_hide_column(tableId, colNo, doShow) {  
-    const table = document.getElementById(tableId);
-    if (!table) return;
-    const displayStyle = doShow ? '' : 'none';
-    
-    table.querySelectorAll(`thead tr > th:nth-child(${colNo}), tbody tr > td:nth-child(${colNo}), tfoot tr > td:nth-child(${colNo})`)
-           .forEach(el => el.style.display = displayStyle);
-  }
-
-  // Bouton download
-  window.downloadPdf= async function (){
-      var element = document.getElementById('dashboard');
-
-      // On remplace le sélecteur de date par une string formatée.
-      const trackDateEl = document.getElementById('track-date')
-      const textArea = document.createElement('textarea');
-      const currentValue = trackDateEl.value; // Garde la valeur YYYY-MM-DD
-
-      textArea.id = 'track-date'; // On garde le même ID
-      textArea.rows = 1; 
-      textArea.className = trackDateEl.className; // On garde les classes CSS
-      textArea.value = trackDate.toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-      trackDateEl.parentNode.replaceChild(textArea, trackDateEl);
-
-      // On remplace tous les textareas par des divs statiques pour figer la hauteur
-      const textareas = document.querySelectorAll('.wpt-desc-input');
-      const backups = [];
-
-      textareas.forEach((ta) => {
-        // On sauvegarde l'élément original
-        const backupData = {
-            original: ta, 
-            staticDiv: null // On le remplira juste après
-        };
-
-        // Création du div statique
-        const staticDiv = document.createElement('div');
-        staticDiv.className = ta.className; // On garde les classes (wpt-desc-input)
-        staticDiv.textContent = ta.value;   // On met le texte
-        
-        // On stocke la référence du div dans notre objet de sauvegarde
-        backupData.staticDiv = staticDiv;
-
-        // On remplace le textarea par le div DANS LE DOM
-        ta.parentNode.replaceChild(staticDiv, ta);
-        
-        // On ajoute à la liste des backups
-        backups.push(backupData);
-    });
-
-    // Petit délai pour laisser le navigateur calculer les nouvelles hauteurs
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    console.log("Backups avant pdf", backups)
-
-    // Petit délai pour laisser le navigateur faire le rendu du nouveau layout
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    document.getElementById('download_Btn').style.opacity = 0;
-    document.getElementById('new_Btn').style.opacity = 0;
-    show_hide_column('wpt-table', 4, false)
-    try {
-        const opt = {
-            margin:       0,
-            filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true  },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-          };
-        await html2pdf().set(opt).from(element).save();
-    } catch (error) {
-        console.error('Error:', error.message);
-    }              
-
-    // On remet les textareas interactifs à la place des divs
-    backups.forEach((item) => {
-      // item.staticDiv est le div qu'on a créé
-      // item.original est le textarea d'origine
-      if (item.staticDiv && item.staticDiv.parentNode) {
-          item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
-      }
-    });
-    show_hide_column('wpt-table', 4, true)
-    document.getElementById('download_Btn').style.opacity = 100;
-    document.getElementById('new_Btn').style.opacity = 100;
-
-    // On restore le sélecteur de date
-    const dateInput = document.createElement('input');
-        
-    dateInput.type = 'date';
-    dateInput.id = textArea.id;
-    dateInput.className = textArea.className;
-    dateInput.value = currentValue;
-    textArea.parentNode.replaceChild(dateInput, textArea);
-
-
-};
 
   function processFile(file) {
     errorMsg.style.display = 'none';
@@ -768,6 +540,7 @@
             trackDate = new Date(input);
         });
         
+
         processTrack();
         
         createMap();
@@ -825,191 +598,31 @@
       const brkT = timeEl ? parseFloat(timeEl.textContent) : 0;
       return { lat, lon, name, desc, cmt, ele, brkT };
     }).filter(w => !isNaN(w.lat) && !isNaN(w.lon));
+
+    console.log(wpts, pts)
   }
 
 
-
-  function processTrack() {
-
-    // Calculs pour chaque trkpt
-    let gainPos = 0, gainNeg = 0, maxSpd = 0;
-    const cumDist = [0], cumDistEffort = [0]; // en mètres
-
-    for (let i = 1; i < pts.length; i++) {
-
-      // Distance horizontale entre chaque trkpt
-      const d  = haversine(pts[i-1], pts[i]);      
-      cumDist.push(cumDist[i-1] + d);// ── Distances cumulées sur la trace complète (pour interpolation) ──   
-
-      // Distance verticale entre chaque trkpt
-      const de = pts[i].ele - pts[i-1].ele;
-      if (de > 0) gainPos += de; else gainNeg += Math.abs(de);
-
-      // Km-effort entre chaque trkpt
-      const dEff  = d + ((de > 0) ? (de *10) : (de * -3));      // Km-effort = dist_horiz + dénivelé_positif*10 + dénivelé_négatif*3 https://fr.wikipedia.org/wiki/Kilom%C3%A8tre-effort
-      cumDistEffort.push(cumDistEffort[i-1] + dEff);// ── Distances cumulées sur la trace complète (pour interpolation) ──   
-
-    }
-    
-    const totalDist = cumDist[cumDist.length - 1];
-    const totalDistEffort = cumDistEffort[cumDist.length - 1];
-
-    const eles = pts.map(p => p.ele);
-    const hasEle   = eles.some(e => e !== 0); 
-
-
-    // Update Stats
-    const speedInp = document.getElementById('speedInput');
-    const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
-    if (kmeh > 0) {
-      const distKme  = totalDistEffort / 1000;
-      const ms      = (distKme / kmeh) * 3600000;
-      durationDate   = new Date(new Date(0).getTime()+ms);
-      durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      }
-
-    const stats = [
-      { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
-      { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
-      { label: 'Durée sans pause',      value: durationStr || '—',         unit: '' , accent: true },
-      { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
-      { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
-      { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
-      { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
-      { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
-    ];
-
-    document.getElementById('statsGrid').innerHTML = stats.map(s => `
-      <div class="stat-card${s.accent ? ' accent' : ''}">
-        <div class="stat-label">${s.label}</div>
-        <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
-      </div>`).join('');
-
-    document.getElementById('speedInput').addEventListener('input', processTrack);
-
-
-
-    // Pour chaque waypoint, trouver le trkpt le plus proche
-    // et mémoriser son index + distance depuis le départ
-    wpts.forEach(w => {
-      let bestIdx = 0, bestDist = Infinity;
-      for (let i = 0; i < pts.length; i++) {
-        const d = haversine(pts[i], w);
-        if (d < bestDist) { bestDist = d; bestIdx = i; }
-      }
-      w.nearestIdx    = bestIdx;
-      w.nearestDist   = bestDist;
-      w.distFromStart = cumDist[bestIdx];
-      w.distEffortFromStart = cumDistEffort[bestIdx];
-      w.trkptEle      = pts[bestIdx].ele; // altitude du trkpt le plus proche
-    });
-
-    // Trier les waypoints dans l'ordre de la trace (par distance cumulée depuis le départ)
-    wpts.sort((a, b) => a.distFromStart - b.distFromStart);
-
-    wptTbody  = document.getElementById('wpt-tbody');
-    const wptPanel  = document.getElementById('wpt-panel');
-    const wptCount  = document.getElementById('wpt-count');
-    const startBar  = document.getElementById('start-time-bar');
-    const startInp  = document.getElementById('startTimeInput');
-    startInp.value = trackDate ? new Date(trackDate).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'}) : '08:00';
-
-    // Fonction qui calcule et affiche les heures d'arrivée
-    function renderWptTable() {
-
-      // Heure de départ depuis le champ de saisie
-      startBar.style.display = 'flex';
-      const [hh, mm] = startInp.value.split(':').map(Number);
-      let t0 = new Date();
-      t0.setHours(hh, mm, 0, 0);
-
-      let cumBreakTimeMin = 0;
-
-
-      wptTbody.innerHTML = wpts.map((w, i) => {
-        // Calcul de l'heure d'arrivée au waypoint
-        let arrivalStr = '—';
-        arrivalClass = 'wpt-arrival interpolated';
-
-        const descInp = document.getElementById('descInput'+(i+1));
-        w.desc = (descInp ? descInp.value : w.desc);
-
-        // heure départ + vitesse de marche
-        const breakTimeInp = document.getElementById('breakTimeInput'+(i+1));
-        const breakTime = (breakTimeInp ? parseFloat(breakTimeInp.value) : w.brkT);
-        cumBreakTimeMin += breakTime;
-        const speedInp = document.getElementById('speedInput');
-        const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
-        if (kmeh > 0) {
-          const distKme  = w.distEffortFromStart / 1000;
-          const ms      = (distKme / kmeh) * 3600000;
-          const tArr    = new Date(t0.getTime() + ms+ cumBreakTimeMin*60*1000);
-          arrivalStr   = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-          }
-
-        // Conversion coordonnées GPS->MN03
-        let lat2 = (w.lat*3600-169028.66)/10000
-        let lon2 = (w.lon*3600 - 26782.5)/10000
-        let xMN03 = Math.floor((2600072.37 + 211455.93 * lon2- 10938.51 * lon2*lat2 - 0.36 *lon2*lat2*lat2- 44.54 * lon2*lon2*lon2)-2000000)/1000
-        let yMN03 = Math.floor((1200147.07+ 308807.95*lat2 + 3745.25*lon2*lon2 + 76.63*lat2*lat2 - 194.56*lon2*lon2*lat2 + 119.79 * lat2*lat2*lat2)- 1000000)/1000
+  async function debugWithLocalFile() {
+    try {
+        // 1. Récupérer le fichier via une requête HTTP (le fichier doit être dans le projet)
+        const reponse = await fetch('itineraire-demo.gpx');
         
+        if (!reponse.ok) throw new Error("Fichier de debug introuvable");
 
-        return `
-        <tr data-lat="${w.lat}" data-lon="${w.lon}" data-name="${w.name.replace(/"/g,'&quot;')}">
-          <td><span class="wpt-num">${i+1}</span></td>
-          <td>
-            <div class="wpt-name">${w.name}</div>
-            <textarea  class="wpt-desc-input" id="descInput${i+1}"  rows="1"  placeholder="Description...">${w.desc} </textarea>
-          </td>
-          <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
-          <td>
-            <div class="wpt-ele">${xMN03} / ${yMN03}</div>
-            <div class="wpt-coord">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div>
-          </td>
-          <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
-          <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} kme</td>
-          <td><input type="number" id="breakTimeInput${i+1}" value="${breakTime}" min="0" step="1"
-          style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;"></td>
-          <td><span class="${arrivalClass}">${arrivalStr}</span></td>
-        </tr>`;
-      }).join('');
+        // 2. Convertir la réponse en Blob
+        const blob = await reponse.blob();
 
-      function  onWptClick(event) {
-        const wptNumber = this.id.split("breakTimeInput")[1]-1;
-        delay(function() {  
-          wpts[wptNumber].brkT = document.getElementById(`breakTimeInput${wptNumber+1}`).value;
-          renderWptTable();
-          }, 200 ); 
+        // 3. Transformer le Blob en objet File pour processFile
+        const fichierLocal = new File([blob], "itineraire-demo.gpx", { type: "text/csv" });
+
+        console.log("🚀 Chargement du fichier local itineraire-demo.gpx...");
+        processFile(fichierLocal);
+    } catch (e) {
+        console.error("Erreur debug:", e);
+    }
   }
 
-
-      document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
-      // Clic sur une ligne → centrer la carte
-      wptTbody.querySelectorAll('tr').forEach((row,i) => {
-        row.addEventListener('click', () => {
-          const lat = parseFloat(row.dataset.lat);
-          const lon = parseFloat(row.dataset.lon);
-          if (mapInst) { mapInst.setView([lat, lon], 15); }
-          //document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-        document.getElementById(`breakTimeInput${i+1}`).addEventListener('input',onWptClick);
-        document.getElementById(`descInput${i+1}`).addEventListener('keyup', function() { delay(function() {renderWptTable(); drawMarkers();}, 500 ); });
-      });
-    }
-
-    if (wpts.length) {
-      wptPanel.style.display = 'block';
-      wptCount.textContent = '(' + wpts.length + ')';
-
-      document.getElementById('startTimeInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
-      document.getElementById('speedInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
-      document.getElementById('track-author').addEventListener('input', function() { trackAuthor = this.value; console.log(trackAuthor) });
-      renderWptTable();
-    } else {
-      wptPanel.style.display = 'none';
-    }
-
-  }
 
   function createMap() {
     setTimeout(() => {
@@ -1164,6 +777,185 @@
       });
   }
 
+  // Delay variable to smooth callbacks when editing
+  var delay = (function(){
+    var timer = 0;
+    return function(callback, ms){
+    clearTimeout (timer);
+    timer = setTimeout(callback, ms);
+   };
+  })();
+
+
+  function initTextarea(el) {
+    if (!el || el.tagName !== 'TEXTAREA') return;
+
+    // 1. Fonction interne pour recalculer la hauteur
+    const adjustHeight = () => {
+        el.style.height = 'auto'; // Réinitialise pour permettre de rétrécir si on efface
+        el.style.height = el.scrollHeight + 'px'; // Définit la hauteur exacte du contenu
+    };
+
+    // 2. Écouteur d'événement : se déclenche à chaque frappe (y compris "Entrée")
+    el.addEventListener('input', adjustHeight);
+
+    // 3. Ajustement immédiat (au cas où le texte contient déjà des sauts de ligne)
+    // On utilise un petit timeout pour s'assurer que le rendu CSS est fini
+    setTimeout(adjustHeight, 0);
+  }
+
+
+  function addMarkerCallback(){
+      isAddingMarker = !isAddingMarker;
+      
+      btnAddMarker.classList.toggle('active');
+      
+      if (isAddingMarker) {
+          btnAddMarker.textContent = '❌ Annuler';
+          mapInst.getContainer().style.cursor = 'crosshair';
+      } else {
+          btnAddMarker.textContent = '📍 Ajouter un marqueur';
+          mapInst.getContainer().style.cursor = '';
+      }
+      document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Gestion du clic sur la carte
+      mapInst.on("click", function (e) {
+        if (!isAddingMarker) return;
+
+/*        L.marker(e.latlng).addTo(mapInst)
+            .bindPopup(`Nouveau point<br>Lat: ${e.latlng.lat.toFixed(4)}`)//TODO changer pour wpt similaire aux autres
+            .openPopup(); */
+        // Création du nouvel objet avec la même structure
+        const newWpt = {
+          lat: e.latlng.lat,
+          lon: e.latlng.lng,
+          name: "Point Ajouté",
+          desc: "Ajouté manuellement",
+          cmt: "",
+          ele: null,
+          brkT: 0
+        };
+
+        // Ajout au tableau existant
+        wpts.push(newWpt);
+        
+        // Optionnel : désactiver le mode après un seul clic
+        btnAddMarker.click(); 
+
+        processTrack();
+        drawMarkers();
+      });   
+  } 
+
+
+  window.resetApp = function() {
+    document.getElementById('upload-section').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    errorMsg.style.display = 'none';
+    fileInput.value = '';
+    if (mapInst)  { mapInst.remove();   mapInst  = null; }
+    if (elevCI)   { elevCI.destroy();   elevCI   = null; }
+    if (speedCI)  { speedCI.destroy();  speedCI  = null; }
+    if (wptTbody)  { wptTbody.innerHTML = '' }
+  };
+  
+  function show_hide_column(tableId, colNo, doShow) {  
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const displayStyle = doShow ? '' : 'none';
+    
+    table.querySelectorAll(`thead tr > th:nth-child(${colNo}), tbody tr > td:nth-child(${colNo}), tfoot tr > td:nth-child(${colNo})`)
+           .forEach(el => el.style.display = displayStyle);
+  }
+
+  // Bouton download
+  window.downloadPdf= async function (){
+      var element = document.getElementById('dashboard');
+
+      // On remplace le sélecteur de date par une string formatée.
+      const trackDateEl = document.getElementById('track-date')
+      const textArea = document.createElement('textarea');
+      const currentValue = trackDateEl.value; // Garde la valeur YYYY-MM-DD
+
+      textArea.id = 'track-date'; // On garde le même ID
+      textArea.rows = 1; 
+      textArea.className = trackDateEl.className; // On garde les classes CSS
+      textArea.value = trackDate.toLocaleDateString('fr-FR', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+      trackDateEl.parentNode.replaceChild(textArea, trackDateEl);
+
+      // On remplace tous les textareas par des divs statiques pour figer la hauteur
+      const textareas = document.querySelectorAll('.wpt-desc-input');
+      const backups = [];
+
+      textareas.forEach((ta) => {
+        // On sauvegarde l'élément original
+        const backupData = {
+            original: ta, 
+            staticDiv: null // On le remplira juste après
+        };
+
+        // Création du div statique
+        const staticDiv = document.createElement('div');
+        staticDiv.className = ta.className; // On garde les classes (wpt-desc-input)
+        staticDiv.textContent = ta.value;   // On met le texte
+        
+        // On stocke la référence du div dans notre objet de sauvegarde
+        backupData.staticDiv = staticDiv;
+
+        // On remplace le textarea par le div DANS LE DOM
+        ta.parentNode.replaceChild(staticDiv, ta);
+        
+        // On ajoute à la liste des backups
+        backups.push(backupData);
+    });
+
+    // Petit délai pour laisser le navigateur calculer les nouvelles hauteurs
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    console.log("Backups avant pdf", backups)
+
+    // Petit délai pour laisser le navigateur faire le rendu du nouveau layout
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    document.getElementById('download_Btn').style.opacity = 0;
+    document.getElementById('new_Btn').style.opacity = 0;
+    show_hide_column('wpt-table', 4, false)
+    try {
+        const opt = {
+            margin:       0,
+            filename:     document.getElementById('track-name').textContent+'_dispositif.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true  },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+          };
+        await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+        console.error('Error:', error.message);
+    }              
+
+    // On remet les textareas interactifs à la place des divs
+    backups.forEach((item) => {
+      // item.staticDiv est le div qu'on a créé
+      // item.original est le textarea d'origine
+      if (item.staticDiv && item.staticDiv.parentNode) {
+          item.staticDiv.parentNode.replaceChild(item.original, item.staticDiv);
+      }
+    });
+    show_hide_column('wpt-table', 4, true)
+    document.getElementById('download_Btn').style.opacity = 100;
+    document.getElementById('new_Btn').style.opacity = 100;
+
+    // On restore le sélecteur de date
+    const dateInput = document.createElement('input');
+        
+    dateInput.type = 'date';
+    dateInput.id = textArea.id;
+    dateInput.className = textArea.className;
+    dateInput.value = currentValue;
+    textArea.parentNode.replaceChild(dateInput, textArea);
+  }; 
+
 
   window.exportGpx= async function (){
     const speedInp = document.getElementById('speedInput');
@@ -1247,7 +1039,228 @@
     // Nettoyage
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-}
+  }
+
+  function processTrack() {
+
+    // Calculs pour chaque trkpt
+    let gainPos = 0, gainNeg = 0, maxSpd = 0;
+    const cumDist = [0], cumDistEffort = [0]; // en mètres
+
+    for (let i = 1; i < pts.length; i++) {
+
+      // Distance horizontale entre chaque trkpt
+      const d  = haversine(pts[i-1], pts[i]);      
+      cumDist.push(cumDist[i-1] + d);// ── Distances cumulées sur la trace complète (pour interpolation) ──   
+
+      // Distance verticale entre chaque trkpt
+      const de = pts[i].ele - pts[i-1].ele;
+      if (de > 0) gainPos += de; else gainNeg += Math.abs(de);
+
+      // Km-effort entre chaque trkpt
+      const dEff  = d + ((de > 0) ? (de *10) : (de * -3));      // Km-effort = dist_horiz + dénivelé_positif*10 + dénivelé_négatif*3 https://fr.wikipedia.org/wiki/Kilom%C3%A8tre-effort
+      cumDistEffort.push(cumDistEffort[i-1] + dEff);// ── Distances cumulées sur la trace complète (pour interpolation) ──   
+
+    }
+    
+    const totalDist = cumDist[cumDist.length - 1];
+    const totalDistEffort = cumDistEffort[cumDist.length - 1];
+
+    const eles = pts.map(p => p.ele);
+    const hasEle   = eles.some(e => e !== 0); 
+
+
+    // Update Stats
+    const speedInp = document.getElementById('speedInput');
+    const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+    if (kmeh > 0) {
+      const distKme  = totalDistEffort / 1000;
+      const ms      = (distKme / kmeh) * 3600000;
+      durationDate   = new Date(new Date(0).getTime()+ms);
+      durationStr   = durationDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+    const stats = [
+      { label: 'Distance',   value: (totalDist/1000).toFixed(2), unit: 'km'},
+      { label: 'Distance eff.',   value: (totalDistEffort/1000).toFixed(2), unit: 'kme', accent: true },
+      { label: 'Durée sans pause',      value: durationStr || '—',         unit: '' , accent: true },
+      { label: 'Dénivelé +', value: hasEle ? Math.round(gainPos) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Dénivelé −', value: hasEle ? Math.round(gainNeg) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Alt. min',   value: hasEle ? Math.round(Math.min(...eles)) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Alt. max',   value: hasEle ? Math.round(Math.max(...eles)) : '—', unit: hasEle ? 'm' : '' },
+      { label: 'Points GPS', value: pts.length.toLocaleString('fr-FR'), unit: '' },
+    ];
+
+    document.getElementById('statsGrid').innerHTML = stats.map(s => `
+      <div class="stat-card${s.accent ? ' accent' : ''}">
+        <div class="stat-label">${s.label}</div>
+        <div class="stat-value">${s.value}<span class="stat-unit">${s.unit}</span></div>
+      </div>`).join('');
+
+    document.getElementById('speedInput').addEventListener('input', processTrack);
+
+
+
+    // Pour chaque waypoint, trouver le trkpt le plus proche
+    // et mémoriser son index + distance depuis le départ
+    wpts.forEach(w => {
+      let bestIdx = 0, bestDist = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const d = haversine(pts[i], w);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      w.nearestIdx    = bestIdx;
+      w.nearestDist   = bestDist;
+      w.distFromStart = cumDist[bestIdx];
+      w.distEffortFromStart = cumDistEffort[bestIdx];
+      w.trkptEle      = pts[bestIdx].ele; // altitude du trkpt le plus proche
+    });
+
+    // Trier les waypoints dans l'ordre de la trace (par distance cumulée depuis le départ)
+    wpts.sort((a, b) => a.distFromStart - b.distFromStart);
+
+    if (wpts.length) {
+      wptPanel.style.display = 'block';
+      wptCount.textContent = '(' + wpts.length + ')';
+
+      document.getElementById('startTimeInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
+      document.getElementById('speedInput').addEventListener('input', function() { delay(function() {renderWptTable(); }, 500 ); });
+      document.getElementById('track-author').addEventListener('input', function() { trackAuthor = this.value; console.log(trackAuthor) });
+      renderWptTable();
+    } else {
+      wptPanel.style.display = 'none';
+    }
+
+  }
+
+
+  // Fonction qui calcule et affiche les heures d'arrivée
+  function renderWptTable() {
+
+    startInp.value = trackDate ? new Date(trackDate).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'}) : '08:00';
+
+    // Heure de départ depuis le champ de saisie
+    startBar.style.display = 'flex';
+    const [hh, mm] = startInp.value.split(':').map(Number);
+    let t0 = new Date();
+    t0.setHours(hh, mm, 0, 0);
+
+    let cumBreakTimeMin = 0;
+
+
+    wptTbody.innerHTML = wpts.map((w, i) => {
+      // Calcul de l'heure d'arrivée au waypoint
+      let arrivalStr = '—';
+      arrivalClass = 'wpt-arrival interpolated';
+
+      const descInp = document.getElementById('descInput'+(i+1));
+      w.desc = (descInp ? descInp.value : w.desc);
+
+      // heure départ + vitesse de marche
+      const breakTimeInp = document.getElementById('breakTimeInput'+(i+1));
+      const breakTime = (breakTimeInp ? parseFloat(breakTimeInp.value) : w.brkT);
+      cumBreakTimeMin += breakTime;
+      const speedInp = document.getElementById('speedInput');
+      const kmeh = speedInp ? parseFloat(speedInp.value) : 4;
+      if (kmeh > 0) {
+        const distKme  = w.distEffortFromStart / 1000;
+        const ms      = (distKme / kmeh) * 3600000;
+        const tArr    = new Date(t0.getTime() + ms+ cumBreakTimeMin*60*1000);
+        arrivalStr   = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+      // Conversion coordonnées GPS->MN03
+      let lat2 = (w.lat*3600-169028.66)/10000
+      let lon2 = (w.lon*3600 - 26782.5)/10000
+      let xMN03 = Math.floor((2600072.37 + 211455.93 * lon2- 10938.51 * lon2*lat2 - 0.36 *lon2*lat2*lat2- 44.54 * lon2*lon2*lon2)-2000000)/1000
+      let yMN03 = Math.floor((1200147.07+ 308807.95*lat2 + 3745.25*lon2*lon2 + 76.63*lat2*lat2 - 194.56*lon2*lon2*lat2 + 119.79 * lat2*lat2*lat2)- 1000000)/1000
+      
+
+      return `
+      <tr data-lat="${w.lat}" data-lon="${w.lon}" data-name="${w.name.replace(/"/g,'&quot;')}">
+        <td><span class="wpt-num">${i+1}</span></td>
+        <td>
+          <div class="wpt-name">${w.name}</div>
+          <textarea  class="wpt-desc-input" id="descInput${i+1}"  rows="1"  placeholder="Description...">${w.desc} </textarea>
+        </td>
+        <td class="wpt-ele">${w.trkptEle ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
+        <td>
+          <div class="wpt-ele">${xMN03} / ${yMN03}</div>
+          <div class="wpt-coord">${w.lat.toFixed(5)}, ${w.lon.toFixed(5)}</div>
+        </td>
+        <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
+        <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} kme</td>
+        <td><input type="number" id="breakTimeInput${i+1}" value="${breakTime}" min="0" step="1"
+        style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;"></td>
+        <td><span class="${arrivalClass}">${arrivalStr}</span></td>
+      </tr>`;
+    }).join('');
+
+    function  onWptClick(event) {
+      const wptNumber = this.id.split("breakTimeInput")[1]-1;
+      delay(function() {  
+        wpts[wptNumber].brkT = document.getElementById(`breakTimeInput${wptNumber+1}`).value;
+        renderWptTable();
+        }, 200 ); 
+    }
+
+
+    document.querySelectorAll('.wpt-desc-input').forEach(initTextarea);
+    // Clic sur une ligne → centrer la carte
+    wptTbody.querySelectorAll('tr').forEach((row,i) => {
+      row.addEventListener('click', () => {
+        const lat = parseFloat(row.dataset.lat);
+        const lon = parseFloat(row.dataset.lon);
+        if (mapInst) { mapInst.setView([lat, lon], 15); }
+        //document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      document.getElementById(`breakTimeInput${i+1}`).addEventListener('input',onWptClick);
+      document.getElementById(`descInput${i+1}`).addEventListener('keyup', function() { delay(function() {renderWptTable(); drawMarkers();}, 500 ); });
+    });
+  }
+
+
+
+
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const errorMsg  = document.getElementById('errorMsg');
+  const btnAddMarker = document.getElementById('btn-add-marker');
+  const wptPanel  = document.getElementById('wpt-panel');
+  const wptCount  = document.getElementById('wpt-count');
+  const startBar  = document.getElementById('start-time-bar');
+  const startInp  = document.getElementById('startTimeInput');
+  wptTbody  = document.getElementById('wpt-tbody');
+
+  // Gestion du clic sur le bouton
+  btnAddMarker.addEventListener('click', addMarkerCallback );
+
+
+  // Create drag & drop
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) processFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) processFile(e.target.files[0]);
+  });
+
+
+  // Debug : fetch server debug file
+  if (new URLSearchParams(window.location.search).get('debug') === 'true') {
+    console.warn("⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...");
+    debugWithLocalFile();
+  }
+
+
+
+
+
+
 
 })();
 </script>
