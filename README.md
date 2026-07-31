@@ -16,9 +16,9 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 ### Bugs
 
 - [x] Fix date perénité + new wpt desc
-- [ ] tracé décalé dans pdf
-- [ ] affichage carte sur header
-- [ ] altitude zoomée sur export
+- [x] tracé décalé dans pdf
+- [x] affichage carte sur header
+- [x] altitude zoomée sur export
 
 ### Fonctionnalités
 
