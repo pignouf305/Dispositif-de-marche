@@ -190,6 +190,11 @@
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     $('#track-date').value = `${yyyy}-${mm}-${dd}`;
+
+    // Synchroniser l'heure de départ depuis trackDate
+    const startInp = $('#startTimeInput');
+    startInp.value = state.trackDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    delete startInp.dataset.userModified;
   }
 
   function getDurationStr(kmeh) {
@@ -677,6 +682,7 @@
     $('#track-name').textContent = '';
     $('#track-author').value = '';
     $('#track-date').value = '';
+    $('#startTimeInput').value = '08:00';
     delete $('#startTimeInput').dataset.userModified;
   };
 
@@ -743,9 +749,17 @@
 
     // Contrôles globaux
     $('#speedInput').addEventListener('input', () => { renderStats(); updateWptTimes(); });
-    $('#startTimeInput').addEventListener('input', () => { $('#startTimeInput').dataset.userModified = 'true'; updateWptTimes(); });
+    $('#startTimeInput').addEventListener('input', function() {
+      this.dataset.userModified = 'true';
+      const [hh, mm] = this.value.split(':').map(Number);
+      state.trackDate.setHours(hh, mm, 0, 0);
+      updateWptTimes();
+    });
     $('#track-author').addEventListener('input', function() { state.trackAuthor = this.value; });
-    $('#track-date').addEventListener('change', function() { state.trackDate = new Date(this.value); });
+    $('#track-date').addEventListener('change', function() {
+      const [y, m, d] = this.value.split('-').map(Number);
+      state.trackDate.setFullYear(y, m - 1, d);
+    });
 
     // Tableau waypoints — délégation d'événements (pas de fuite)
     const tbody = $('#wpt-tbody');
