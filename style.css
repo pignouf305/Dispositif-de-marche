@@ -235,6 +235,26 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 }
 .wpt-name { font-weight: 500; }
 .wpt-desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.wpt-name-input {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-weight: 500;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0 0 2px 0;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: text;
+}
+.wpt-name-input:hover,
+.wpt-name-input:focus {
+  border-bottom: 1px solid var(--border);
+}
 .wpt-desc-input {
   color: var(--muted);
   font-size: 12px;

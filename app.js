@@ -440,8 +440,8 @@
       <tr data-lat="${w.lat}" data-lon="${w.lon}" data-index="${i}">
         <td><span class="wpt-num">${i + 1}</span></td>
         <td>
-          <div class="wpt-name">${escapeHtml(w.name)}</div>
-          <textarea class="wpt-desc-input" data-index="${i}" rows="1" placeholder="Description...">${escapeHtml(w.desc)}</textarea>
+          <input type="text" class="wpt-name-input" id="wptNameInput${i}" data-index="${i}" value="${escapeHtml(w.name)}" placeholder="Nom du waypoint...">
+          <textarea class="wpt-desc-input" id="descInput${i}" data-index="${i}" rows="1" placeholder="Description...">${escapeHtml(w.desc)}</textarea>
         </td>
         <td class="wpt-ele">${w.trkptEle !== null ? Math.round(w.trkptEle) + ' m' : (w.ele !== null ? Math.round(w.ele) + ' m' : '—')}</td>
         <td>
@@ -545,6 +545,19 @@
     // Ne traiter que les <textarea> réels (évite d'écraser le div de date créé au §4)
     clone.querySelectorAll('.wpt-desc-input').forEach(el => {
       if (el.tagName !== 'TEXTAREA') return;
+      let val = '';
+      const origEl = el.id ? document.getElementById(el.id) : null;
+      if (origEl) val = origEl.value || '';
+      else val = el.value || '';
+      const div = document.createElement('div');
+      div.className = el.className;
+      div.textContent = val;
+      el.parentNode.replaceChild(div, el);
+    });
+
+    // 5a. Noms des waypoints (input -> texte)
+    clone.querySelectorAll('.wpt-name-input').forEach(el => {
+      if (el.tagName !== 'INPUT') return;
       let val = '';
       const origEl = el.id ? document.getElementById(el.id) : null;
       if (origEl) val = origEl.value || '';
@@ -773,7 +786,10 @@
     tbody.addEventListener('input', e => {
       const idx = parseInt(e.target.dataset.index, 10);
       if (isNaN(idx)) return;
-      if (e.target.classList.contains('wpt-desc-input')) {
+      if (e.target.classList.contains('wpt-name-input')) {
+        state.wpts[idx].name = e.target.value;
+        drawMarkers(false);
+      } else if (e.target.classList.contains('wpt-desc-input')) {
         state.wpts[idx].desc = e.target.value;
         drawMarkers(false);
       } else if (e.target.classList.contains('wpt-break-input')) {
