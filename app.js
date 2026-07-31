@@ -489,44 +489,104 @@
   // ============================================================
   // PDF / Export
   // ============================================================
-  window.downloadPdf = async function() {
+  window.downloadPdf = async function () {
     const original = $('#dashboard');
+    let mapImgData = null;
+
+    // 1. Capturer la carte du DOM réel en image PNG
+    try {
+      const mapEl = $('#map');
+      if (mapEl && window.htmlToImage) {
+        // Forcer un invalidateSize pour être sûr que tout est bien calé
+        if (state.mapInst) state.mapInst.invalidateSize();
+        await new Promise(r => setTimeout(r, 600));
+
+        mapImgData = await htmlToImage.toPng(mapEl, {
+          cacheBust: true,
+          pixelRatio: 2,
+          backgroundColor: null,
+          skipFonts: true,
+        });
+      }
+    } catch (capErr) {
+      console.warn('Capturer carte échouée, fallback sur rendu direct :', capErr);
+    }
+
+    // 2. Cloner le dashboard
     const clone = original.cloneNode(true);
 
-    // Date
+    // 3. Remplacer la carte par l'image capturée (si dispo)
+    const mapClone = clone.querySelector('#map');
+    if (mapClone && mapImgData) {
+      mapClone.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = mapImgData;
+      img.style.cssText = 'width:100%;height:450px;display:block;object-fit:cover;';
+      mapClone.appendChild(img);
+    }
+
+    // 4. Date formatée (depuis DOM original)
+    const dateOriginal = $('#track-date');
     const dateClone = clone.querySelector('#track-date');
-    if (dateClone) {
+    if (dateClone && dateOriginal) {
       const div = document.createElement('div');
       div.className = dateClone.className;
-      div.textContent = state.trackDate.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const d = new Date(dateOriginal.value);
+      div.textContent = isNaN(d.getTime()) ? dateOriginal.value : d.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       dateClone.parentNode.replaceChild(div, dateClone);
     }
 
-    // Textareas -> divs
+    // 5. Textareas -> divs (valeurs lues depuis le DOM original)
+    // Ne traiter que les <textarea> réels (évite d'écraser le div de date créé au §4)
     clone.querySelectorAll('.wpt-desc-input').forEach(el => {
-      if (el.id === 'track-date') return; // déjà traité
+      if (el.tagName !== 'TEXTAREA') return;
+      let val = '';
+      const origEl = el.id ? document.getElementById(el.id) : null;
+      if (origEl) val = origEl.value || '';
+      else val = el.value || '';
       const div = document.createElement('div');
       div.className = el.className;
-      div.textContent = el.value;
+      div.textContent = val;
       el.parentNode.replaceChild(div, el);
     });
 
-    // Masquer colonne coordonnées
+    // 5b. Vitesse de marche (input -> texte, depuis DOM original)
+    const speedOriginal = $('#speedInput');
+    const speedClone = clone.querySelector('#speedInput');
+    if (speedClone && speedOriginal) {
+      const val = speedOriginal.value || '4.6';
+      const span = document.createElement('span');
+      span.style.cssText = 'font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);display:inline-block;min-width:72px;';
+      span.textContent = val;
+      speedClone.parentNode.replaceChild(span, speedClone);
+    }
+
+    // 5c. Canvas Chart.js -> image (depuis DOM original)
+    const origCanvas = $('#elevChart');
+    const chartClone = clone.querySelector('#elevChart');
+    if (origCanvas && chartClone && state.elevCI) {
+      const img = document.createElement('img');
+      img.src = origCanvas.toDataURL('image/png');
+      img.style.cssText = 'width:100%;height:100%;display:block;';
+      chartClone.parentNode.replaceChild(img, chartClone);
+    }
+
+    // 6. Masquer colonne coordonnées
     const table = clone.querySelector('#wpt-table');
     if (table) {
       table.querySelectorAll('tr > *:nth-child(4)').forEach(el => el.style.display = 'none');
     }
 
-    // Masquer boutons
-    clone.querySelectorAll('#download_Btn, #new_Btn').forEach(b => b.style.display = 'none');
+    // 7. Masquer boutons export/import/nouveau
+    clone.querySelectorAll('#download_Btn, #new_Btn, #export_Btn').forEach(b => b.style.display = 'none');
 
-    // Container temporaire
+    // 8. Container temporaire avec largeur fixe
     const temp = document.createElement('div');
-    temp.style.cssText = 'position:absolute;left:-9999px;top:0;';
+    temp.style.cssText = 'position:absolute;left:-9999px;top:0;width:1140px;';
     temp.appendChild(clone);
     document.body.appendChild(temp);
 
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
 
     try {
       await html2pdf().set({
@@ -540,7 +600,7 @@
       console.error('PDF Error:', err);
       showError('Erreur lors de la génération du PDF.');
     } finally {
-      document.body.removeChild(temp);
+      if (temp.parentNode) document.body.removeChild(temp);
     }
   };
 
