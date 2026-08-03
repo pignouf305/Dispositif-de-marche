@@ -16,9 +16,9 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 ### Bugs
 
 - [x] Fix date perénité + new wpt desc
-- [ ] tracé décalé dans pdf
-- [ ] affichage carte sur header
-- [ ] altitude zoomée sur export
+- [x] tracé décalé dans pdf
+- [x] affichage carte sur header
+- [x] altitude zoomée sur export
 
 ### Fonctionnalités
 
@@ -27,11 +27,12 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [x] Commentaires
 - [x] Export pdf
 - [x] Export GPX
-- [ ] numéro pour marqueurs
-- [ ] Metadonnées (auteurice, num cartes)
-- [ ] editer nom marqueur
-- [ ] supprimer marqueur
-- [ ] marqueur dans profil
-- [ ] kme dans profil
-- [ ] zoom dans profil
+- [x] numéro pour marqueurs
+- [x] Metadonnées (auteurice, num cartes)
+- [x] editer nom marqueur
+- [x] supprimer marqueur
+- [x] marqueur dans profil
+- [x] kme dans profil
+- [ ] Refactor GUI version desktop pour agrandir carte
+- [ ] Redimmensionner colonnes en PDF
 
