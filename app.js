@@ -579,7 +579,7 @@
       mapClone.innerHTML = '';
       const img = document.createElement('img');
       img.src = mapImgData;
-      img.style.cssText = 'width:100%;height:450px;display:block;object-fit:cover;';
+      img.style.cssText = 'width:100%;height:500px;display:block;object-fit:cover;';
       mapClone.appendChild(img);
     }
 
