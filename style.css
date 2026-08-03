@@ -363,3 +363,14 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
   margin: 1rem 0;
   display: none;
 }
+
+/* ── Fullscreen button ── */
+.leaflet-bar.fullscreen-btn a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+}
+.leaflet-bar.fullscreen-btn a:hover {
+  background: #f4f4f4;
+}
