@@ -294,15 +294,17 @@
     state.markerGroup.addLayer(L.marker(lls[0], { icon: mkIcon('#1a9e6e') }).bindPopup('Départ'));
     state.markerGroup.addLayer(L.marker(lls[lls.length - 1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée'));
 
-    const wptIcon = L.divIcon({
-      html: `<div style="width:14px;height:14px;background:#e05a2b;border-radius:3px;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg)"></div>`,
-      iconSize: [14, 14], iconAnchor: [7, 7], className: ''
-    });
-
-    state.wpts.forEach(w => {
+    state.wpts.forEach((w, i) => {
       const popupParts = [`<strong>${escapeHtml(w.name)}</strong>`];
       if (w.desc) popupParts.push(`<br><span style="font-size:12px;color:#888">${escapeHtml(w.desc)}</span>`);
       if (w.trkptEle !== null) popupParts.push(`<br><span style="font-size:11px;font-family:monospace;color:#aaa">${Math.round(w.trkptEle)} m</span>`);
+      const wptIcon = L.divIcon({
+        html: `<div style="position:relative;width:22px;height:22px;">
+          <div style="position:absolute;top:0;left:0;width:22px;height:22px;background:#e05a2b;border-radius:3px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35);transform:rotate(45deg);"></div>
+          <div style="position:absolute;top:0;left:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;font-family:var(--mono);text-shadow:0 1px 2px rgba(0,0,0,.3);">${i + 1}</div>
+        </div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11], className: ''
+      });
       state.markerGroup.addLayer(L.marker([w.lat, w.lon], { icon: wptIcon }).bindPopup(popupParts.join('')));
     });
   }
