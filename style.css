@@ -374,3 +374,9 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 .leaflet-bar.fullscreen-btn a:hover {
   background: #f4f4f4;
 }
+
+/* ── Highlight row ── */
+.wpt-table tbody tr.highlight {
+  background: var(--accent-light) !important;
+  transition: background 0.3s ease;
+}

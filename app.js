@@ -376,6 +376,42 @@
     toggleAddMarker();
   }
 
+  const wptMarkersPlugin = {
+    id: 'wptMarkers',
+    afterDatasetsDraw(chart) {
+      if (!state.wpts.length) return;
+      const { ctx, scales: { x, y } } = chart;
+      const size = 15;
+      state.wpts.forEach((w, i) => {
+        const distKm = w.distFromStart / 1000;
+        const ele = w.trkptEle !== null ? w.trkptEle : (w.ele !== null ? w.ele : 0);
+        const px = x.getPixelForValue(distKm);
+        const py = y.getPixelForValue(ele);
+        if (px === null || py === null || isNaN(px) || isNaN(py)) return;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = '#e05a2b';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowBlur = 3;
+        ctx.beginPath();
+        ctx.rect(-size / 2, -size / 2, size, size);
+        ctx.fill();
+        ctx.stroke();
+        ctx.rotate(-Math.PI / 4);
+        ctx.shadowColor = 'transparent';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px "DM Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), 0, 1);
+        ctx.restore();
+      });
+    }
+  };
+
   // ============================================================
   // Graphique altitude
   // ============================================================
@@ -397,31 +433,29 @@
 
     const MAX = 400;
     const step = Math.max(1, Math.floor(state.pts.length / MAX));
-    const spts = state.pts.filter((_, i) => i % step === 0);
+    const indices = state.pts.map((_, i) => i).filter(i => i % step === 0);
+    const lastIdx = state.pts.length - 1;
+    if (lastIdx % step !== 0) indices.push(lastIdx);
 
-    let cd = 0;
-    const cds = [0];
-    for (let i = 1; i < spts.length; i++) {
-      cd += haversine(spts[i - 1], spts[i]) / 1000;
-      cds.push(parseFloat(cd.toFixed(2)));
-    }
+    const spts = indices.map(i => state.pts[i]);
+    const cds = indices.map(i => parseFloat((state.cumDist[i] / 1000).toFixed(2)));
 
     const chartDefaults = {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { maxTicksLimit: 7, font: { size: 10 }, color: '#8a8880' }, grid: { color: 'rgba(0,0,0,.05)' }, border: { color: 'rgba(0,0,0,.1)' } },
+        x: { type: 'linear', bounds: 'data', ticks: { maxTicksLimit: 7, font: { size: 10 }, color: '#8a8880' }, grid: { color: 'rgba(0,0,0,.05)' }, border: { color: 'rgba(0,0,0,.1)' } },
         y: { ticks: { font: { size: 10 }, color: '#8a8880' }, grid: { color: 'rgba(0,0,0,.05)' }, border: { color: 'rgba(0,0,0,.1)' } }
       }
     };
 
     state.elevCI = new Chart(canvas, {
       type: 'line',
+      plugins: [wptMarkersPlugin],
       data: {
-        labels: cds,
         datasets: [{
-          data: spts.map(p => Math.round(p.ele)),
+          data: spts.map((p, i) => ({ x: cds[i], y: Math.round(p.ele), kme: state.cumDistEffort[indices[i]] / 1000 })),
           fill: true,
           backgroundColor: 'rgba(61,241,90,0.08)',
           borderColor: '#087f01',
@@ -434,7 +468,8 @@
         ...chartDefaults,
         plugins: {
           ...chartDefaults.plugins,
-          tooltip: { callbacks: { label: c => c.parsed.y + ' m alt.', title: c => c[0].label + ' km' } }
+          wptMarkers: true,
+          tooltip: { callbacks: { label: c => c.parsed.y + ' m alt.', title: c => c[0].raw.kme.toFixed(2) + ' kme' } }
         },
         scales: {
           ...chartDefaults.scales,
@@ -848,6 +883,42 @@
       } else if (e.target.classList.contains('wpt-break-input')) {
         state.wpts[idx].brkT = parseFloat(e.target.value) || 0;
         updateWptTimes();
+      }
+    });
+
+    // Clic sur le profil altimétrique -> scroll vers le waypoint dans le tableau
+    $('#elevChart').addEventListener('click', e => {
+      if (!state.elevCI) return;
+      const rect = e.target.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const { scales: { x, y } } = state.elevCI;
+
+      let closest = null, closestDist = Infinity;
+      state.wpts.forEach((w, i) => {
+        const distKm = w.distFromStart / 1000;
+        const ele = w.trkptEle !== null ? w.trkptEle : (w.ele !== null ? w.ele : 0);
+        const px = x.getPixelForValue(distKm);
+        const py = y.getPixelForValue(ele);
+        if (px === null || py === null || isNaN(px) || isNaN(py)) return;
+        const dx = clickX - px;
+        const dy = clickY - py;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 16 && d < closestDist) {
+          closestDist = d;
+          closest = i;
+        }
+      });
+
+      if (closest !== null) {
+        const row = $(`#wpt-tbody tr[data-index="${closest}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          $$('#wpt-tbody tr.highlight').forEach(r => r.classList.remove('highlight'));
+          row.classList.add('highlight');
+          setTimeout(() => row.classList.remove('highlight'), 1800);
+        }
+        if (state.mapInst) state.mapInst.setView([state.wpts[closest].lat, state.wpts[closest].lon], 15);
       }
     });
 

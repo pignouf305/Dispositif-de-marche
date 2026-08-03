@@ -27,11 +27,12 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [x] Commentaires
 - [x] Export pdf
 - [x] Export GPX
-- [ ] numéro pour marqueurs
+- [x] numéro pour marqueurs
 - [x] Metadonnées (auteurice, num cartes)
 - [x] editer nom marqueur
 - [ ] supprimer marqueur
-- [ ] marqueur dans profil
-- [ ] kme dans profil
-- [ ] zoom dans profil
+- [x] marqueur dans profil
+- [x] kme dans profil
+- [ ] Refactor GUI version desktop pour agrandir carte
+- [ ] Redimmensionner colonnes en PDF
 
