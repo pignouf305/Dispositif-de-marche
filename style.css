@@ -226,6 +226,13 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 .wpt-table th:nth-child(7), .wpt-table td:nth-child(7) { width: 80px; white-space: normal; word-break: break-word;}
 .wpt-table th:nth-child(8), .wpt-table td:nth-child(8) { width: 80px; white-space: normal; word-break: break-word;}
 .wpt-table th:nth-child(9), .wpt-table td:nth-child(9) { width: 80px; white-space: normal; word-break: break-word;}
+.wpt-table th:nth-child(10), .wpt-table td:nth-child(10) { width: 36px; white-space: normal; word-break: break-word; text-align: center; }
+
+.wpt-delete-btn { transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease; background-color: var(--surface); }
+.wpt-delete-btn:hover { color: #c0392b; background-color: #fdecea; border-color: #c0392b; }
+.wpt-table tbody tr:hover .wpt-delete-btn { background-color: var(--surface); }
+.wpt-table tbody tr:hover .wpt-delete-btn:hover { background-color: #fdecea; }
+
 .wpt-num {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px;

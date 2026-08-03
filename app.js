@@ -536,6 +536,11 @@
             style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;">
         </td>
         <td><span class="wpt-departure interpolated">—</span></td>
+        <td>
+          <button class="wpt-delete-btn" data-index="${i}" title="Supprimer" style="border:1px solid var(--border);cursor:pointer;color:var(--muted);padding:4px 5px;font-size:0;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;width:28px;height:28px;box-sizing:border-box;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </td>
       </tr>`;
     }).join('');
 
@@ -865,7 +870,7 @@
     // Tableau waypoints — délégation d'événements (pas de fuite)
     const tbody = $('#wpt-tbody');
     tbody.addEventListener('click', e => {
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('.wpt-delete-btn')) return;
       const row = e.target.closest('tr[data-lat]');
       if (!row || !state.mapInst) return;
       state.mapInst.setView([parseFloat(row.dataset.lat), parseFloat(row.dataset.lon)], 15);
@@ -884,6 +889,18 @@
         state.wpts[idx].brkT = parseFloat(e.target.value) || 0;
         updateWptTimes();
       }
+    });
+
+    // Suppression d'un waypoint
+    tbody.addEventListener('click', e => {
+      const btn = e.target.closest('.wpt-delete-btn');
+      if (!btn) return;
+      const idx = parseInt(btn.dataset.index, 10);
+      if (isNaN(idx)) return;
+      state.wpts.splice(idx, 1);
+      renderWptTable();
+      drawMarkers(false);
+      createChart();
     });
 
     // Clic sur le profil altimétrique -> scroll vers le waypoint dans le tableau
