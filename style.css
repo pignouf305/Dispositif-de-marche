@@ -225,7 +225,7 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 .wpt-table th:nth-child(6), .wpt-table td:nth-child(6) { width: 100px; white-space: normal; word-break: break-word; }
 .wpt-table th:nth-child(7), .wpt-table td:nth-child(7) { width: 80px; white-space: normal; word-break: break-word;}
 .wpt-table th:nth-child(8), .wpt-table td:nth-child(8) { width: 80px; white-space: normal; word-break: break-word;}
-
+.wpt-table th:nth-child(9), .wpt-table td:nth-child(9) { width: 80px; white-space: normal; word-break: break-word;}
 .wpt-num {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px;
@@ -304,6 +304,9 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 }
 .wpt-arrival { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent); }
 .wpt-arrival.interpolated { color: var(--green); }
+
+.wpt-departure { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent); }
+.wpt-departure.interpolated { color: var(--green); }
 
 /* Barre de saisie heure départ */
 .start-time-bar {

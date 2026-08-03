@@ -450,11 +450,12 @@
         </td>
         <td class="wpt-coord">${(w.distFromStart / 1000).toFixed(2)} km</td>
         <td class="wpt-coord">${(w.distEffortFromStart / 1000).toFixed(2)} kme</td>
+        <td><span class="wpt-arrival interpolated">—</span></td>
         <td>
           <input type="number" class="wpt-break-input" data-index="${i}" value="${w.brkT}" min="0" step="1"
             style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;">
         </td>
-        <td><span class="wpt-arrival interpolated">—</span></td>
+        <td><span class="wpt-departure interpolated">—</span></td>
       </tr>`;
     }).join('');
 
@@ -471,23 +472,30 @@
     let cumBreakTimeMin = 0;
 
     state.wpts.forEach((w, i) => {
-      cumBreakTimeMin += w.brkT;
 
       const row = $(`#wpt-tbody tr[data-index="${i}"]`);
       if (!row) return;
-      const span = row.querySelector('.wpt-arrival');
-      if (!span) return;
+      const spanArr = row.querySelector('.wpt-arrival');
+      if (!spanArr) return;
+      const spanDep = row.querySelector('.wpt-departure');
+      if (!spanDep) return;
 
       if (speedVal > 0) {
         const distKme = w.distEffortFromStart / 1000;
         const ms = (distKme / speedVal) * 3600000;
         const tArr = new Date(t0.getTime() + ms + cumBreakTimeMin * 60 * 1000);
-        span.textContent = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        span.className = 'wpt-arrival';
+        const tDep = new Date(t0.getTime() + ms + (cumBreakTimeMin + w.brkT) * 60 * 1000);
+        spanArr.textContent = tArr.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        spanArr.className = 'wpt-arrival';
+        spanDep.textContent = tDep.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        spanDep.className = 'wpt-departure';
       } else {
-        span.textContent = '—';
-        span.className = 'wpt-arrival interpolated';
+        spanArr.textContent = '—';
+        spanArr.className = 'wpt-arrival interpolated';
+        spanDep.textContent = '—';
+        spanDep.className = 'wpt-departure interpolated';
       }
+      cumBreakTimeMin += w.brkT;
     });
   }
 
