@@ -466,6 +466,7 @@
       },
       options: {
         ...chartDefaults,
+        layout: { padding: { left: 10, right: 10, top: 0, bottom: 0 } },
         plugins: {
           ...chartDefaults.plugins,
           wptMarkers: true,

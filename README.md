@@ -30,7 +30,7 @@ Première maquette (malheureusement) réalisée à l'aide de Claude by Anthropic
 - [x] numéro pour marqueurs
 - [x] Metadonnées (auteurice, num cartes)
 - [x] editer nom marqueur
-- [ ] supprimer marqueur
+- [x] supprimer marqueur
 - [x] marqueur dans profil
 - [x] kme dans profil
 - [ ] Refactor GUI version desktop pour agrandir carte
