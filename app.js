@@ -51,6 +51,49 @@
   }
 
   // ============================================================
+  // Compression / Encodage URL
+  // ============================================================
+  function supportsCompression() {
+    return typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
+  }
+
+  async function compressToBase64(str) {
+    const encoded = new TextEncoder().encode(str);
+    const stream = new ReadableStream({
+      start(controller) { controller.enqueue(encoded); controller.close(); }
+    }).pipeThrough(new CompressionStream('deflate-raw'));
+    const compressed = await new Response(stream).arrayBuffer();
+    const bytes = new Uint8Array(compressed);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function decompressFromBase64(b64) {
+    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new ReadableStream({
+      start(controller) { controller.enqueue(bytes); controller.close(); }
+    }).pipeThrough(new DecompressionStream('deflate-raw'));
+    const decompressed = await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(decompressed);
+  }
+
+  function simplifyPoints(pts) {
+    const MAX = 500;
+    if (pts.length <= MAX) return pts;
+    const step = Math.ceil(pts.length / MAX);
+    const simplified = [];
+    simplified.push(pts[0]);
+    for (let i = step; i < pts.length - 1; i += step) simplified.push(pts[i]);
+    simplified.push(pts[pts.length - 1]);
+    return simplified;
+  }
+
+  // ============================================================
   // Math / Géo
   // ============================================================
   function haversine(a, b) {
@@ -791,7 +834,85 @@
     $('#track-date').value = '';
     $('#startTimeInput').value = '08:00';
     delete $('#startTimeInput').dataset.userModified;
+
+    // Nettoyer le hash de partage
+    history.replaceState(null, '', window.location.pathname + window.location.search);
   };
+
+  window.shareTrack = async function() {
+    if (!supportsCompression()) {
+      showError('La fonction de partage n\'est pas supportée par ce navigateur.');
+      return;
+    }
+    try {
+      const payload = {
+        n: state.trackName,
+        a: state.trackAuthor,
+        d: state.trackDate.toISOString(),
+        s: parseFloat($('#speedInput').value) || 4.6,
+        p: simplifyPoints(state.pts).map(p => [+p.lat.toFixed(6), +p.lon.toFixed(6), +p.ele.toFixed(2)]),
+        w: state.wpts.map(w => [
+          +w.lat.toFixed(6), +w.lon.toFixed(6),
+          w.name, w.desc || '', w.cmt || '',
+          w.ele !== null ? +w.ele.toFixed(2) : null,
+          w.brkT || 0
+        ])
+      };
+      const json = JSON.stringify(payload);
+      const compressed = await compressToBase64(json);
+      const url = window.location.origin + window.location.pathname + window.location.search + '#t=' + compressed;
+
+      await navigator.clipboard.writeText(url);
+
+      const btn = $('#share_Btn');
+      const original = btn.innerHTML;
+      btn.innerHTML = '<span style="color:#1a9e6e">URL copiée !</span>';
+      setTimeout(() => btn.innerHTML = original, 2000);
+    } catch (err) {
+      console.error('Share error:', err);
+      showError('Erreur lors de la génération du lien de partage.');
+    }
+  };
+
+  async function loadFromHash() {
+    const hash = location.hash;
+    if (!hash || !hash.startsWith('#t=')) return;
+    if (!supportsCompression()) {
+      showError('Impossible d\'ouvrir le lien de partage avec ce navigateur.');
+      return;
+    }
+    try {
+      const compressed = hash.slice(3);
+      const json = await decompressFromBase64(compressed);
+      const data = JSON.parse(json);
+
+      state.trackName = data.n || '';
+      state.trackAuthor = data.a || '';
+      state.trackDate = data.d ? new Date(data.d) : new Date();
+      if (!isNaN(data.s)) $('#speedInput').value = data.s;
+
+      state.pts = (data.p || []).map(([lat, lon, ele]) => ({ lat, lon, ele: ele != null ? ele : 0 }));
+      state.wpts = (data.w || []).map(([lat, lon, name, desc, cmt, ele, brkT]) => ({
+        lat, lon,
+        name: name || '', desc: desc || '', cmt: cmt || '',
+        ele: ele !== null ? ele : null,
+        brkT: brkT || 0
+      }));
+
+      if (!state.pts.length) throw new Error('Aucun point de trace dans le lien.');
+
+      showDashboard();
+      computeTrackMetrics();
+      snapWaypointsToTrack();
+      renderStats();
+      renderWptTable();
+      createMap();
+      createChart();
+    } catch (err) {
+      console.error('Load from hash error:', err);
+      showError('Erreur lors de l\'ouverture du lien de partage : ' + err.message);
+    }
+  }
 
   // ============================================================
   // Process fichier
@@ -814,6 +935,8 @@
         renderWptTable();
         createMap();
         createChart();
+        // Nettoyer le hash de partage lors du chargement d'un nouveau fichier
+        history.replaceState(null, '', window.location.pathname + window.location.search);
       } catch (err) {
         showError('Erreur lors de l\'analyse : ' + err.message);
         console.error(err);
@@ -942,8 +1065,14 @@
 
     $('#btn-add-marker').addEventListener('click', toggleAddMarker);
 
-    // Debug
-    if (new URLSearchParams(location.search).get('debug') === 'true') {
+    // Chargement depuis hash de partage
+    const hasTrackHash = location.hash && location.hash.startsWith('#t=');
+    if (hasTrackHash) {
+      loadFromHash();
+    }
+
+    // Debug (uniquement si aucun hash de partage présent)
+    if (!hasTrackHash && new URLSearchParams(location.search).get('debug') === 'true') {
       console.warn('⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...');
       debugWithLocalFile();
     }
