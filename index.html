@@ -23,6 +23,11 @@
 </header>
 
 <div id="upload-section">
+    <button class="btn" type="button" onclick="startNewTrack()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+      Dessiner un tracé
+    </button>
+    <div class="or-divider">ou</div>
   <div class="drop-zone" id="dropZone">
     <div class="icon-wrap">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#087f01" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -80,6 +85,18 @@
       Nouveau fichier
     </button>
 
+  </div>
+
+  <div id="drawing-controls" class="drawing-controls" style="display:none;">
+    <button class="btn" id="undoDrawingBtn" onclick="undoLastPoint()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      Annuler dernier point
+    </button>
+    <button class="btn btn-accent" id="finishDrawingBtn" onclick="finishTrackDrawing()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      Terminer le tracé
+    </button>
+    <span id="drawingStatus" style="font-size:12px;color:var(--muted);margin-left:auto;">Cliquez sur la carte pour ajouter des points</span>
   </div>
 
   <div class="stats-grid" id="statsGrid"></div>

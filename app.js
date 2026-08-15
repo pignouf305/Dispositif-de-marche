@@ -22,8 +22,23 @@
     elevCI: null,
     markerGroup: null,
     isAddingMarker: false,
+    isDrawingTrack: false,
+    isRouting: false,
+    ignoreMapClickUntil: 0,
   };
 
+  // ============================================================
+  // Configuration routing (Cloudflare Worker)
+  // ============================================================
+  // IMPORTANT : remplacez par l'URL de votre Worker après déploiement.
+  // Les instructions de déploiement sont dans proxy-worker.js
+  const WORKER_URL = 'https://ors-proxy.bariboule.workers.dev/';
+  const WORKER_CONFIGURED = /^https:\/\/[^\/]+\.workers\.dev\/?$/i.test(WORKER_URL);
+  if (!WORKER_CONFIGURED) {
+    console.warn('%c[ROUTING] Worker ORS non configuré. Éditez WORKER_URL dans app.js (ligne ~35).', 'color:orange;font-weight:bold');
+  } else {
+    console.log('%c[ROUTING] Worker ORS configuré : ' + WORKER_URL, 'color:green');
+  }
   // ============================================================
   // Helpers DOM
   // ============================================================
@@ -272,7 +287,7 @@
   // ============================================================
   // Carte
   // ============================================================
-  function createMap() {
+  function createMap(opts = {}) {
     setTimeout(() => {
       if (state.mapInst) { state.mapInst.remove(); state.mapInst = null; }
 
@@ -299,6 +314,7 @@
       });
 
       state.mapInst = L.map('map', { zoomControl: true, layers: [carteSwissTopo] });
+      state.mapInst.doubleClickZoom.disable();
 
       const fsOpenIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
       const fsCloseIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>';
@@ -352,14 +368,35 @@
 
       state.markerGroup = L.layerGroup().addTo(state.mapInst);
 
-      // Listener unique pour l'ajout de marqueur
+      // Listener unique pour l'ajout de marqueur ou le dessin de tracé
       state.mapInst.on('click', e => {
-        if (!state.isAddingMarker) return;
-        addManualMarker(e.latlng.lat, e.latlng.lng);
+        if (Date.now() < state.ignoreMapClickUntil) return;
+        if (state.isAddingMarker) {
+          addManualMarker(e.latlng.lat, e.latlng.lng);
+        } else if (state.isDrawingTrack) {
+          addTrackPoint(e.latlng.lat, e.latlng.lng);
+        }
       });
 
+      if (opts.initialView) {
+        state.mapInst.setView(opts.initialView.center, opts.initialView.zoom);
+      }
+
+      updateMapCursor();
       drawMarkers(true);
     }, 150);
+  }
+
+  function updateMapCursor() {
+    if (!state.mapInst) return;
+    const container = state.mapInst.getContainer();
+    if (state.isDrawingTrack || state.isAddingMarker) {
+      container.style.cursor = 'crosshair';
+      state.mapInst.doubleClickZoom.disable();
+    } else {
+      container.style.cursor = '';
+      state.mapInst.doubleClickZoom.enable();
+    }
   }
 
   function drawMarkers(fit = false) {
@@ -368,17 +405,25 @@
     const lls = state.pts.map(p => [p.lat, p.lon]);
     state.markerGroup.clearLayers();
 
-    const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 });
-    state.markerGroup.addLayer(poly);
-    if (fit) state.mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+    if (lls.length >= 2) {
+      const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 });
+      state.markerGroup.addLayer(poly);
+      if (fit) state.mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+    } else if (lls.length === 1 && fit) {
+      state.mapInst.setView(lls[0], 15);
+    }
 
     const mkIcon = (bg) => L.divIcon({
       html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
       iconSize: [12, 12], iconAnchor: [6, 6], className: ''
     });
 
-    state.markerGroup.addLayer(L.marker(lls[0], { icon: mkIcon('#1a9e6e') }).bindPopup('Départ'));
-    state.markerGroup.addLayer(L.marker(lls[lls.length - 1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée'));
+    if (lls.length) {
+      state.markerGroup.addLayer(L.marker(lls[0], { icon: mkIcon('#1a9e6e') }).bindPopup('Départ'));
+      if (lls.length > 1) {
+        state.markerGroup.addLayer(L.marker(lls[lls.length - 1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée'));
+      }
+    }
 
     state.wpts.forEach((w, i) => {
       const popupParts = [`<strong>${escapeHtml(w.name)}</strong>`];
@@ -400,7 +445,7 @@
     const btn = $('#btn-add-marker');
     btn.classList.toggle('active', state.isAddingMarker);
     btn.textContent = state.isAddingMarker ? '❌ Annuler' : '📍 Ajouter un marqueur';
-    if (state.mapInst) state.mapInst.getContainer().style.cursor = state.isAddingMarker ? 'crosshair' : '';
+    updateMapCursor();
     if (state.isAddingMarker) $('#map').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
@@ -544,8 +589,10 @@
     const startBar = $('#start-time-bar');
 
     if (!state.wpts.length) {
-      panel.style.display = 'none';
+      panel.style.display = 'block';
+      count.textContent = '(0)';
       tbody.innerHTML = '';
+      startBar.style.display = 'flex';
       return;
     }
 
@@ -808,6 +855,223 @@
   };
 
   // ============================================================
+  // Dessin de tracé manuel
+  // ============================================================
+  async function fetchElevations() {
+    if (!state.pts.length) return;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const body = JSON.stringify({
+        locations: state.pts.map(p => ({ latitude: p.lat, longitude: p.lon }))
+      });
+
+      const response = await fetch('https://api.open-elevation.com/api/v1/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body,
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      if (!Array.isArray(data.results)) throw new Error('Format invalide');
+
+      data.results.forEach((r, i) => {
+        if (state.pts[i]) state.pts[i].ele = typeof r.elevation === 'number' ? r.elevation : 0;
+      });
+    } catch (err) {
+      console.warn('Open-Elevation indisponible, altitudes laissées à 0 :', err);
+    }
+  }
+
+  window.startNewTrack = function() {
+    clearError();
+    state.pts = [];
+    state.wpts = [];
+    state.trackName = 'Nouveau tracé';
+    state.trackDate = new Date();
+    state.trackAuthor = '';
+    state.isDrawingTrack = true;
+    state.isRouting = false;
+    state.ignoreMapClickUntil = Date.now() + 600;
+    $('#speedInput').value = '4.6';
+
+    showDashboard();
+    $('#drawing-controls').style.display = 'flex';
+    $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
+    $('#statsGrid').innerHTML = '';
+    $('#wpt-tbody').innerHTML = '';
+
+    createMap({ initialView: { center: [46.2044, 6.1432], zoom: 13 } });
+  };
+
+  async function fetchWorkerSegment(from, to) {
+    console.log('%c[ROUTING] Tentative Worker ORS → ' + WORKER_URL, 'color:blue');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat1: from.lat, lon1: from.lon,
+          lat2: to.lat, lon2: to.lon
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 200));
+      }
+      const data = await res.json();
+      const coords = data.features[0].geometry.coordinates; // [[lon, lat, ele], ...]
+      if (coords.length < 2) throw new Error('Pas assez de points dans la réponse');
+      const lastRouterEle = coords[coords.length - 1][2];
+      const pts = coords.slice(1, -1).map(([lon, lat, ele]) => ({ lat, lon, ele: typeof ele === 'number' ? ele : 0 }));
+      console.log('%c[ROUTING] ✔ Worker ORS répond OK (' + coords.length + ' points)', 'color:green');
+      return { pts, lastRouterEle };
+    } catch (err) {
+      clearTimeout(timeout);
+      console.error('%c[ROUTING] ✘ Worker ORS échoue :', 'color:red', err.message || err);
+      throw err;
+    }
+  }
+
+  async function fetchBRouterSegment(from, to, profile) {
+    console.log('%c[ROUTING] Tentative BRouter → profile=' + profile, 'color:blue');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const url = `https://brouter.de/brouter?lonlats=${from.lon},${from.lat}|${to.lon},${to.lat}&profile=${profile}&format=geojson`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data.features || !data.features[0] || !data.features[0].geometry) throw new Error('Pas de géométrie');
+      const coords = data.features[0].geometry.coordinates;
+      if (coords.length < 2) throw new Error('Pas assez de points');
+      const lastRouterEle = coords[coords.length - 1][2];
+      const pts = coords.slice(1, -1).map(([lon, lat, ele]) => ({ lat, lon, ele: typeof ele === 'number' ? ele : 0 }));
+      console.log('%c[ROUTING] ✔ BRouter OK profile=' + profile + ' (' + coords.length + ' points)', 'color:green');
+      return { pts, lastRouterEle };
+    } catch (err) {
+      clearTimeout(timeout);
+      console.error('%c[ROUTING] ✘ BRouter échoue profile=' + profile + ' :', 'color:orange', err.message || err);
+      throw err;
+    }
+  }
+
+  async function fetchRouteSegment(from, to) {
+    const label = `[${from.lat.toFixed(4)},${from.lon.toFixed(4)}] → [${to.lat.toFixed(4)},${to.lon.toFixed(4)}]`;
+    console.group('%c[ROUTING] Segment ' + label, 'color:#555;font-weight:bold');
+
+    // 1. Essayer le Worker ORS
+    if (WORKER_CONFIGURED) {
+      try {
+        const result = await fetchWorkerSegment(from, to);
+        console.groupEnd();
+        return result;
+      } catch (err) {
+        // déjà loggué dans fetchWorkerSegment
+      }
+    } else {
+      console.warn('%c[ROUTING] Worker ignoré (non configuré)', 'color:orange');
+    }
+
+    // 2. Fallback cascade BRouter
+    const profiles = ['foot', 'hiking-mountain', 'hiking', 'trekking'];
+    for (const profile of profiles) {
+      try {
+        const result = await fetchBRouterSegment(from, to, profile);
+        console.groupEnd();
+        return result;
+      } catch (err) {
+        // déjà loggué dans fetchBRouterSegment
+      }
+    }
+
+    console.warn('%c[ROUTING] Tous les routeurs ont échoué → segment droit utilisé', 'color:red;font-weight:bold');
+    console.groupEnd();
+    return { pts: [], lastRouterEle: 0 };
+  }
+
+  async function addTrackPoint(lat, lon) {
+    if (state.isRouting || Date.now() < state.ignoreMapClickUntil) return;
+    if (state.pts.length === 0) {
+      state.pts.push({ lat, lon, ele: 0, userPlaced: true });
+      if (state.mapInst) state.mapInst.panTo([lat, lon]);
+      drawTrackDuringEditing();
+      return;
+    }
+    state.isRouting = true;
+    $('#drawingStatus').textContent = 'Calcul de l\'itinéraire...';
+    const lastPt = state.pts[state.pts.length - 1];
+    const route = await fetchRouteSegment(lastPt, { lat, lon });
+    route.pts.forEach(p => state.pts.push(p));
+    state.pts.push({ lat, lon, ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0, userPlaced: true });
+    state.isRouting = false;
+    $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
+    drawTrackDuringEditing();
+  }
+
+  window.undoLastPoint = function() {
+    if (!state.isDrawingTrack || !state.pts.length || state.isRouting) return;
+    state.pts.pop();
+    while (state.pts.length && !state.pts[state.pts.length - 1].userPlaced) {
+      state.pts.pop();
+    }
+    drawTrackDuringEditing();
+  };
+
+  function drawTrackDuringEditing() {
+    if (!state.mapInst) return;
+    state.markerGroup.clearLayers();
+    const lls = state.pts.map(p => [p.lat, p.lon]);
+    if (lls.length >= 2) {
+      state.markerGroup.addLayer(L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }));
+    }
+    lls.forEach((ll, i) => {
+      const pt = state.pts[i];
+      if (!pt.userPlaced) return; // masquer les points intermédiaires OSRM
+      const color = i === 0 ? '#1a9e6e' : (i === lls.length - 1 ? '#e05a2b' : '#3d5af1');
+      state.markerGroup.addLayer(L.circleMarker(ll, {
+        radius: 5, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
+      }));
+    });
+  }
+
+  window.finishTrackDrawing = async function() {
+    state.isDrawingTrack = false;
+    if (state.pts.length < 2) {
+      showError('Le tracé doit comporter au moins 2 points.');
+      resetApp();
+      return;
+    }
+    $('#undoDrawingBtn').style.display = 'none';
+    $('#finishDrawingBtn').style.display = 'none';
+    $('#drawingStatus').textContent = 'Finalisation...';
+
+    // BRouter fournit déjà les altitudes dans le GeoJSON,
+    // mais le 1er point est ajouté manuellement à ele:0.
+    // On récupère donc les altitudes pour tous les points.
+    await fetchElevations();
+
+    $('#drawing-controls').style.display = 'none';
+    $('#undoDrawingBtn').style.display = '';
+    $('#finishDrawingBtn').style.display = '';
+
+    computeTrackMetrics();
+    renderStats();
+    renderWptTable();
+    createMap();
+    createChart();
+  };
+
+  // ============================================================
   // Reset
   // ============================================================
   window.resetApp = function() {
@@ -825,6 +1089,8 @@
     state.trackDate = new Date();
     state.trackAuthor = '';
     state.isAddingMarker = false;
+    state.isDrawingTrack = false;
+    state.isRouting = false;
 
     $('#statsGrid').innerHTML = '';
     $('#wpt-tbody').innerHTML = '';
@@ -834,6 +1100,7 @@
     $('#track-date').value = '';
     $('#startTimeInput').value = '08:00';
     delete $('#startTimeInput').dataset.userModified;
+    $('#drawing-controls').style.display = 'none';
 
     // Nettoyer le hash de partage
     history.replaceState(null, '', window.location.pathname + window.location.search);
