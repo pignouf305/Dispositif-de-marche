@@ -27,7 +27,35 @@
     ignoreMapClickUntil: 0,
   };
 
-  // ============================================================
+  // Sauvegarde de l'état précédent (pour annuler le dessin de tracé)
+  let previousState = null;
+
+  function savePreviousState() {
+    let mapView = { center: [46.2044, 6.1432], zoom: 13 };
+    if (state.mapInst) {
+      const c = state.mapInst.getCenter();
+      mapView = { center: [c.lat, c.lng], zoom: state.mapInst.getZoom() };
+    }
+    previousState = {
+      pts: state.pts.map(p => ({ ...p })),
+      wpts: state.wpts.map(w => ({ ...w })),
+      trackName: state.trackName,
+      trackDate: new Date(state.trackDate),
+      trackAuthor: state.trackAuthor,
+      cumDist: [...state.cumDist],
+      cumDistEffort: [...state.cumDistEffort],
+      totalDist: state.totalDist,
+      totalDistEffort: state.totalDistEffort,
+      gainPos: state.gainPos,
+      gainNeg: state.gainNeg,
+      hasEle: state.hasEle,
+      eles: [...state.eles],
+      speed: $('#speedInput').value,
+      startTime: $('#startTimeInput').value,
+      trackDateValue: $('#track-date').value,
+      mapView,
+    };
+  }
   // Configuration routing (Cloudflare Worker)
   // ============================================================
   // IMPORTANT : remplacez par l'URL de votre Worker après déploiement.
@@ -891,31 +919,28 @@
 
   window.startNewTrack = function() {
     clearError();
-    state.pts = [];
-    state.wpts = [];
-    state.trackName = 'Nouveau tracé';
-    state.trackDate = new Date();
-    state.trackAuthor = '';
-    state.totalDist = 0;
-    state.totalDistEffort = 0;
-    state.gainPos = 0;
-    state.gainNeg = 0;
-    state.cumDist = [0];
-    state.cumDistEffort = [0];
-    state.eles = [];
-    state.hasEle = false;
+
+    // Sauvegarder la vue actuelle de la carte avant reset
+    let savedView = { center: [46.2044, 6.1432], zoom: 13 };
+    if (state.mapInst) {
+      const c = state.mapInst.getCenter();
+      savedView = { center: [c.lat, c.lng], zoom: state.mapInst.getZoom() };
+    }
+
+    savePreviousState(); // mémorise le trek précédent
+    resetApp();          // ménage complet
+
     state.isDrawingTrack = true;
     state.isRouting = false;
     state.ignoreMapClickUntil = Date.now() + 600;
-    $('#speedInput').value = '4.6';
+    state.trackName = 'Nouveau tracé';
+    $('#track-name').value = 'Nouveau tracé';
 
     showDashboard();
     $('#drawing-controls').style.display = 'flex';
     $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
-    $('#statsGrid').innerHTML = '';
-    $('#wpt-tbody').innerHTML = '';
 
-    createMap({ initialView: { center: [46.2044, 6.1432], zoom: 13 } });
+    createMap({ initialView: savedView });
   };
 
   async function fetchWorkerSegment(from, to) {
@@ -1068,7 +1093,40 @@
   window.cancelDrawing = function() {
     state.isDrawingTrack = false;
     $('#drawing-controls').style.display = 'none';
-    resetApp();
+
+    if (previousState) {
+      // Restaurer le trek précédent
+      state.pts = previousState.pts.map(p => ({ ...p }));
+      state.wpts = previousState.wpts.map(w => ({ ...w }));
+      state.trackName = previousState.trackName;
+      state.trackDate = new Date(previousState.trackDate);
+      state.trackAuthor = previousState.trackAuthor;
+      state.cumDist = [...previousState.cumDist];
+      state.cumDistEffort = [...previousState.cumDistEffort];
+      state.totalDist = previousState.totalDist;
+      state.totalDistEffort = previousState.totalDistEffort;
+      state.gainPos = previousState.gainPos;
+      state.gainNeg = previousState.gainNeg;
+      state.hasEle = previousState.hasEle;
+      state.eles = [...previousState.eles];
+
+      $('#track-name').value = state.trackName;
+      $('#track-author').value = state.trackAuthor;
+      $('#speedInput').value = previousState.speed;
+      $('#startTimeInput').value = previousState.startTime;
+      $('#track-date').value = previousState.trackDateValue;
+
+      showDashboard();
+      renderStats();
+      renderWptTable();
+      createMap({ initialView: previousState.mapView });
+      createChart();
+      updateUIState();
+      previousState = null;
+    } else {
+      resetApp();
+      createMap({ initialView: { center: [46.2044, 6.1432], zoom: 13 } });
+    }
   };
 
   function drawTrackDuringEditing() {
