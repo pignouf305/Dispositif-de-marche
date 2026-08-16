@@ -857,35 +857,6 @@
   // ============================================================
   // Dessin de tracé manuel
   // ============================================================
-  async function fetchElevations() {
-    if (!state.pts.length) return;
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-
-      const body = JSON.stringify({
-        locations: state.pts.map(p => ({ latitude: p.lat, longitude: p.lon }))
-      });
-
-      const response = await fetch('https://api.open-elevation.com/api/v1/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body,
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const data = await response.json();
-      if (!Array.isArray(data.results)) throw new Error('Format invalide');
-
-      data.results.forEach((r, i) => {
-        if (state.pts[i]) state.pts[i].ele = typeof r.elevation === 'number' ? r.elevation : 0;
-      });
-    } catch (err) {
-      console.warn('Open-Elevation indisponible, altitudes laissées à 0 :', err);
-    }
-  }
 
   window.startNewTrack = function() {
     clearError();
@@ -930,10 +901,11 @@
       const data = await res.json();
       const coords = data.features[0].geometry.coordinates; // [[lon, lat, ele], ...]
       if (coords.length < 2) throw new Error('Pas assez de points dans la réponse');
-      const lastRouterEle = coords[coords.length - 1][2];
+      const firstRouterEle = typeof coords[0][2] === 'number' ? coords[0][2] : 0;
+      const lastRouterEle = typeof coords[coords.length - 1][2] === 'number' ? coords[coords.length - 1][2] : 0;
       const pts = coords.slice(1, -1).map(([lon, lat, ele]) => ({ lat, lon, ele: typeof ele === 'number' ? ele : 0 }));
       console.log('%c[ROUTING] ✔ Worker ORS répond OK (' + coords.length + ' points)', 'color:green');
-      return { pts, lastRouterEle };
+      return { pts, firstRouterEle, lastRouterEle };
     } catch (err) {
       clearTimeout(timeout);
       console.error('%c[ROUTING] ✘ Worker ORS échoue :', 'color:red', err.message || err);
@@ -954,10 +926,11 @@
       if (!data.features || !data.features[0] || !data.features[0].geometry) throw new Error('Pas de géométrie');
       const coords = data.features[0].geometry.coordinates;
       if (coords.length < 2) throw new Error('Pas assez de points');
-      const lastRouterEle = coords[coords.length - 1][2];
+      const firstRouterEle = typeof coords[0][2] === 'number' ? coords[0][2] : 0;
+      const lastRouterEle = typeof coords[coords.length - 1][2] === 'number' ? coords[coords.length - 1][2] : 0;
       const pts = coords.slice(1, -1).map(([lon, lat, ele]) => ({ lat, lon, ele: typeof ele === 'number' ? ele : 0 }));
       console.log('%c[ROUTING] ✔ BRouter OK profile=' + profile + ' (' + coords.length + ' points)', 'color:green');
-      return { pts, lastRouterEle };
+      return { pts, firstRouterEle, lastRouterEle };
     } catch (err) {
       clearTimeout(timeout);
       console.error('%c[ROUTING] ✘ BRouter échoue profile=' + profile + ' :', 'color:orange', err.message || err);
@@ -996,7 +969,7 @@
 
     console.warn('%c[ROUTING] Tous les routeurs ont échoué → segment droit utilisé', 'color:red;font-weight:bold');
     console.groupEnd();
-    return { pts: [], lastRouterEle: 0 };
+    return { pts: [], firstRouterEle: 0, lastRouterEle: 0 };
   }
 
   async function addTrackPoint(lat, lon) {
@@ -1011,6 +984,13 @@
     $('#drawingStatus').textContent = 'Calcul de l\'itinéraire...';
     const lastPt = state.pts[state.pts.length - 1];
     const route = await fetchRouteSegment(lastPt, { lat, lon });
+
+    // Si c'est le premier segment calculé, corrige l'altitude du point de départ
+    // avec celle fournie par le routeur pour son origine.
+    if (state.pts.length === 1 && typeof route.firstRouterEle === 'number') {
+      state.pts[0].ele = route.firstRouterEle;
+    }
+
     route.pts.forEach(p => state.pts.push(p));
     state.pts.push({ lat, lon, ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0, userPlaced: true });
     state.isRouting = false;
@@ -1055,10 +1035,16 @@
     $('#finishDrawingBtn').style.display = 'none';
     $('#drawingStatus').textContent = 'Finalisation...';
 
-    // BRouter fournit déjà les altitudes dans le GeoJSON,
-    // mais le 1er point est ajouté manuellement à ele:0.
-    // On récupère donc les altitudes pour tous les points.
-    await fetchElevations();
+    // Le 1er point est posé manuellement à ele:0, tandis que les suivants
+    // viennent du routeur (ORS/BRouter) avec des altitudes réelles.
+    // On corrige donc localement le 1er point sans appel réseau.
+    if (state.pts[0].ele === 0) {
+      const firstWithEle = state.pts.find(p => p.ele !== 0);
+      if (firstWithEle) {
+        state.pts[0].ele = firstWithEle.ele;
+        console.log('[ELEV] Altitude du 1er point corrigée :', firstWithEle.ele);
+      }
+    }
 
     $('#drawing-controls').style.display = 'none';
     $('#undoDrawingBtn').style.display = '';
