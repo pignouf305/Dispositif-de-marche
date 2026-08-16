@@ -1076,6 +1076,8 @@
       if (state.mapInst) state.mapInst.panTo([lat, lon]);
       drawTrackDuringEditing();
       renderWptTable();
+      updateUIState();
+      createChart();
 
       // Chercher le vrai nom du lieu en arrière-plan
       const idx = 0;
@@ -1128,6 +1130,8 @@
       snapWaypointsToTrack();
       renderStats();
       renderWptTable();
+      updateUIState();
+      createChart();
       const segDist = ((state.totalDist - prevDist) / 1000).toFixed(2);
       const segDPlus = state.hasEle ? Math.round(state.gainPos - prevGain) + 'm+' : '';
       $('#drawingStatus').textContent = `Segment ajouté : +${segDist} km — ${segDPlus}`;
@@ -1151,7 +1155,9 @@
       snapWaypointsToTrack();
       renderStats();
       renderWptTable();
+      createChart();
     } else {
+      computeTrackMetrics();
       state.totalDist = 0;
       state.totalDistEffort = 0;
       state.gainPos = 0;
@@ -1161,6 +1167,7 @@
       $('#statsGrid').innerHTML = '';
       if (state.wpts.length) snapWaypointsToTrack();
       renderWptTable();
+      createChart();
     }
     updateUIState();
   };
