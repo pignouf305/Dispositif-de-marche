@@ -153,7 +153,49 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
   display: flex; align-items: flex-start; justify-content: space-between;
   margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
 }
-#track-name { font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
+/* ligne 156 -> supprimee car redondante */
+.track-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 1 auto;
+  max-width: min(420px, 35vw);
+}
+
+#track-name {
+  width: 100%;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.3px;
+  color: var(--text);
+  font-family: var(--sans);
+
+  /* fond gris clair comme le reste de la page */
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-left: -8px;          /* compense le padding pour garder l'alignement */
+  outline: none;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#track-name:hover,
+#track-name:focus {
+  background: var(--bg);
+  border-color: var(--border);
+}
+#track-name::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.dash-header > .btn {
+  flex-shrink: 0;
+}
 
 /* ── Stats grid ── */
 .stats-grid {

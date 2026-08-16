@@ -240,7 +240,7 @@
   function showDashboard() {
     $('#upload-section').style.display = 'none';
     $('#dashboard').style.display = 'block';
-    $('#track-name').textContent = state.trackName;
+    $('#track-name').value = state.trackName;
     $('#track-author').value = state.trackAuthor;
 
     const d = state.trackDate;
@@ -725,6 +725,17 @@
       dateClone.parentNode.replaceChild(div, dateClone);
     }
 
+    // 4b. Titre du tracé (input -> texte)
+    const nameOriginal = $('#track-name');
+    const nameClone = clone.querySelector('#track-name');
+    if (nameClone && nameOriginal) {
+      const div = document.createElement('div');
+      div.id = nameClone.id;
+      div.className = nameClone.className;
+      div.textContent = nameOriginal.value || '';
+      nameClone.parentNode.replaceChild(div, nameClone);
+    }
+
     // 5. Textareas -> divs (valeurs lues depuis le DOM original)
     // Ne traiter que les <textarea> réels (évite d'écraser le div de date créé au §4)
     clone.querySelectorAll('.wpt-desc-input').forEach(el => {
@@ -1111,7 +1122,7 @@
     $('#statsGrid').innerHTML = '';
     $('#wpt-tbody').innerHTML = '';
     $('#wpt-panel').style.display = 'none';
-    $('#track-name').textContent = '';
+    $('#track-name').value = '';
     $('#track-author').value = '';
     $('#track-date').value = '';
     $('#startTimeInput').value = '08:00';
@@ -1269,6 +1280,7 @@
       updateWptTimes();
     });
     $('#track-author').addEventListener('input', function() { state.trackAuthor = this.value; });
+    $('#track-name').addEventListener('input', function() { state.trackName = this.value; });
     $('#track-date').addEventListener('change', function() {
       const [y, m, d] = this.value.split('-').map(Number);
       state.trackDate.setFullYear(y, m - 1, d);
