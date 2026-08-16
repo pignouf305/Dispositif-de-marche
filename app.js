@@ -1040,8 +1040,12 @@
     if (state.isRouting || Date.now() < state.ignoreMapClickUntil) return;
     if (state.pts.length === 0) {
       state.pts.push({ lat, lon, ele: 0, userPlaced: true });
+      state.wpts.push({ lat, lon, name: 'Départ', desc: '', cmt: '', ele: 0, brkT: 0 });
+      computeTrackMetrics();
+      snapWaypointsToTrack();
       if (state.mapInst) state.mapInst.panTo([lat, lon]);
       drawTrackDuringEditing();
+      renderWptTable();
       return;
     }
     state.isRouting = true;
@@ -1053,6 +1057,7 @@
     // avec celle fournie par le routeur pour son origine.
     if (state.pts.length === 1 && typeof route.firstRouterEle === 'number') {
       state.pts[0].ele = route.firstRouterEle;
+      state.wpts[0].ele = route.firstRouterEle;
     }
 
     const prevDist = state.totalDist;
@@ -1060,12 +1065,21 @@
 
     route.pts.forEach(p => state.pts.push(p));
     state.pts.push({ lat, lon, ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0, userPlaced: true });
+    state.wpts.push({
+      lat, lon,
+      name: 'Étape ' + state.wpts.length,
+      desc: '', cmt: '',
+      ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0,
+      brkT: 0
+    });
     state.isRouting = false;
 
-    // Met à jour les stats en temps réel pendant le dessin
+    // Met à jour les stats et waypoints en temps réel pendant le dessin
     if (state.pts.length >= 2) {
       computeTrackMetrics();
+      snapWaypointsToTrack();
       renderStats();
+      renderWptTable();
       const segDist = ((state.totalDist - prevDist) / 1000).toFixed(2);
       const segDPlus = state.hasEle ? Math.round(state.gainPos - prevGain) + 'm+' : '';
       $('#drawingStatus').textContent = `Segment ajouté : +${segDist} km — ${segDPlus}`;
@@ -1082,10 +1096,23 @@
     while (state.pts.length && !state.pts[state.pts.length - 1].userPlaced) {
       state.pts.pop();
     }
+    if (state.wpts.length) state.wpts.pop();
     drawTrackDuringEditing();
     if (state.pts.length >= 2) {
       computeTrackMetrics();
+      snapWaypointsToTrack();
       renderStats();
+      renderWptTable();
+    } else {
+      state.totalDist = 0;
+      state.totalDistEffort = 0;
+      state.gainPos = 0;
+      state.gainNeg = 0;
+      state.cumDist = [0];
+      state.cumDistEffort = [0];
+      $('#statsGrid').innerHTML = '';
+      if (state.wpts.length) snapWaypointsToTrack();
+      renderWptTable();
     }
     updateUIState();
   };
