@@ -865,6 +865,14 @@
     state.trackName = 'Nouveau tracé';
     state.trackDate = new Date();
     state.trackAuthor = '';
+    state.totalDist = 0;
+    state.totalDistEffort = 0;
+    state.gainPos = 0;
+    state.gainNeg = 0;
+    state.cumDist = [0];
+    state.cumDistEffort = [0];
+    state.eles = [];
+    state.hasEle = false;
     state.isDrawingTrack = true;
     state.isRouting = false;
     state.ignoreMapClickUntil = Date.now() + 600;
@@ -991,10 +999,24 @@
       state.pts[0].ele = route.firstRouterEle;
     }
 
+    const prevDist = state.totalDist;
+    const prevGain = state.gainPos;
+
     route.pts.forEach(p => state.pts.push(p));
     state.pts.push({ lat, lon, ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0, userPlaced: true });
     state.isRouting = false;
-    $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
+
+    // Met à jour les stats en temps réel pendant le dessin
+    if (state.pts.length >= 2) {
+      computeTrackMetrics();
+      renderStats();
+      const segDist = ((state.totalDist - prevDist) / 1000).toFixed(2);
+      const segDPlus = state.hasEle ? Math.round(state.gainPos - prevGain) + 'm+' : '';
+      $('#drawingStatus').textContent = `Segment ajouté : +${segDist} km — ${segDPlus}`;
+    } else {
+      $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
+    }
+
     drawTrackDuringEditing();
   }
 
@@ -1074,6 +1096,14 @@
     state.trackName = '';
     state.trackDate = new Date();
     state.trackAuthor = '';
+    state.totalDist = 0;
+    state.totalDistEffort = 0;
+    state.gainPos = 0;
+    state.gainNeg = 0;
+    state.cumDist = [0];
+    state.cumDistEffort = [0];
+    state.eles = [];
+    state.hasEle = false;
     state.isAddingMarker = false;
     state.isDrawingTrack = false;
     state.isRouting = false;
