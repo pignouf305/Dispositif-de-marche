@@ -238,7 +238,8 @@
   // Affichage dashboard
   // ============================================================
   function showDashboard() {
-    $('#upload-section').style.display = 'none';
+    const upload = $('#upload-section');
+    if (upload) upload.style.display = 'none';
     $('#dashboard').style.display = 'block';
     $('#track-name').value = state.trackName;
     $('#track-author').value = state.trackAuthor;
@@ -258,8 +259,27 @@
   function getDurationStr(kmeh) {
     if (!kmeh || kmeh <= 0) return '—';
     const distKme = state.totalDistEffort / 1000;
-    const ms = (distKme / kmeh) * 3600000;
-    return new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const totalMin = (distKme / kmeh) * 60;
+    const h = Math.floor(totalMin / 60);
+    const m = Math.round(totalMin % 60);
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function updateUIState() {
+    const hasData = state.pts.length > 0;
+    const method = hasData ? 'remove' : 'add';
+    $('#statsGrid').classList[method]('dimmed');
+    $('#elev-panel').classList[method]('dimmed');
+    $('#wpt-panel').classList[method]('dimmed');
+
+    const titleWrap = $('.track-title-wrap');
+    if (titleWrap) titleWrap.classList[method]('dimmed');
+
+    const actionRight = $('.dash-actions-right');
+    if (actionRight) actionRight.classList[method]('dimmed');
+
+    const headerBottom = $('.dash-header-bottom');
+    if (headerBottom) headerBottom.classList[method]('dimmed');
   }
 
   function renderStats() {
@@ -1038,6 +1058,17 @@
       state.pts.pop();
     }
     drawTrackDuringEditing();
+    if (state.pts.length >= 2) {
+      computeTrackMetrics();
+      renderStats();
+    }
+    updateUIState();
+  };
+
+  window.cancelDrawing = function() {
+    state.isDrawingTrack = false;
+    $('#drawing-controls').style.display = 'none';
+    resetApp();
   };
 
   function drawTrackDuringEditing() {
@@ -1088,16 +1119,14 @@
     renderWptTable();
     createMap();
     createChart();
+    updateUIState();
   };
 
   // ============================================================
   // Reset
   // ============================================================
   window.resetApp = function() {
-    $('#upload-section').style.display = 'flex';
-    $('#dashboard').style.display = 'none';
     clearError();
-    $('#fileInput').value = '';
 
     if (state.mapInst) { state.mapInst.remove(); state.mapInst = null; }
     if (state.elevCI) { state.elevCI.destroy(); state.elevCI = null; }
@@ -1121,7 +1150,6 @@
 
     $('#statsGrid').innerHTML = '';
     $('#wpt-tbody').innerHTML = '';
-    $('#wpt-panel').style.display = 'none';
     $('#track-name').value = '';
     $('#track-author').value = '';
     $('#track-date').value = '';
@@ -1131,6 +1159,7 @@
 
     // Nettoyer le hash de partage
     history.replaceState(null, '', window.location.pathname + window.location.search);
+    updateUIState();
   };
 
   window.shareTrack = async function() {
@@ -1202,6 +1231,7 @@
       renderWptTable();
       createMap();
       createChart();
+      updateUIState();
     } catch (err) {
       console.error('Load from hash error:', err);
       showError('Erreur lors de l\'ouverture du lien de partage : ' + err.message);
@@ -1221,6 +1251,11 @@
     reader.onerror = () => showError('Impossible de lire ce fichier.');
     reader.onload = e => {
       try {
+        // Sortir du mode dessin si actif
+        state.isDrawingTrack = false;
+        const dc = $('#drawing-controls');
+        if (dc) dc.style.display = 'none';
+
         parseGPX(e.target.result, file.name);
         showDashboard();
         computeTrackMetrics();
@@ -1229,6 +1264,7 @@
         renderWptTable();
         createMap();
         createChart();
+        updateUIState();
         // Nettoyer le hash de partage lors du chargement d'un nouveau fichier
         history.replaceState(null, '', window.location.pathname + window.location.search);
       } catch (err) {
@@ -1259,17 +1295,66 @@
   // Initialisation (listeners uniques)
   // ============================================================
   function init() {
-    // Upload
+    // Upload (drop zone optionnelle si elle existe encore)
     const dropZone = $('#dropZone');
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => {
+    if (dropZone) {
+      dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f) processFile(f);
+      });
+    }
+    $('#fileInput').addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+    // Afficher le dashboard directement
+    $('#dashboard').style.display = 'block';
+
+    // État propre au chargement
+    clearError();
+    state.pts = [];
+    state.wpts = [];
+    state.trackName = '';
+    state.trackDate = new Date();
+    state.trackAuthor = '';
+    state.totalDist = 0;
+    state.totalDistEffort = 0;
+    state.gainPos = 0;
+    state.gainNeg = 0;
+    state.cumDist = [0];
+    state.cumDistEffort = [0];
+    state.eles = [];
+    state.hasEle = false;
+    state.isAddingMarker = false;
+    state.isDrawingTrack = false;
+    state.isRouting = false;
+
+    $('#track-name').value = '';
+    $('#track-author').value = '';
+    $('#track-date').value = new Date().toISOString().slice(0, 10);
+    $('#speedInput').value = '4.6';
+    $('#startTimeInput').value = '08:00';
+    delete $('#startTimeInput').dataset.userModified;
+
+    // Init carte sur Genève
+    createMap({ initialView: { center: [46.2044, 6.1432], zoom: 13 } });
+
+    // Tableau waypoints vide (visible)
+    renderWptTable();
+
+    // Stats vierges
+    renderStats();
+    updateUIState();
+
+    // Drag-and-drop global sur toute la page
+    document.addEventListener('dragover', e => { e.preventDefault(); });
+    document.addEventListener('drop', e => {
       e.preventDefault();
-      dropZone.classList.remove('drag-over');
       const f = e.dataTransfer.files[0];
       if (f) processFile(f);
     });
-    $('#fileInput').addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
 
     // Contrôles globaux
     $('#speedInput').addEventListener('input', () => { renderStats(); updateWptTimes(); });

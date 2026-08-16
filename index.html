@@ -22,72 +22,56 @@
   <a href="https://github.com/pignouf305/Dispositif-de-marche"><svg aria-hidden="true" focusable="false" class="octicon octicon-mark-github" viewBox="0 0 24 24" width="32" height="32" fill="currentColor" display="inline-block" overflow="visible" style="vertical-align:text-bottom"><path d="M10.226 17.284c-2.965-.36-5.054-2.493-5.054-5.256 0-1.123.404-2.336 1.078-3.144-.292-.741-.247-2.314.09-2.965.898-.112 2.111.36 2.83 1.01.853-.269 1.752-.404 2.853-.404 1.1 0 1.999.135 2.807.382.696-.629 1.932-1.1 2.83-.988.315.606.36 2.179.067 2.942.72.854 1.101 2 1.101 3.167 0 2.763-2.089 4.852-5.098 5.234.763.494 1.28 1.572 1.28 2.807v2.336c0 .674.561 1.056 1.235.786 4.066-1.55 7.255-5.615 7.255-10.646C23.5 6.188 18.334 1 11.978 1 5.62 1 .5 6.188.5 12.545c0 4.986 3.167 9.12 7.435 10.669.606.225 1.19-.18 1.19-.786V20.63a2.9 2.9 0 0 1-1.078.224c-1.483 0-2.359-.808-2.987-2.313-.247-.607-.517-.966-1.034-1.033-.27-.023-.359-.135-.359-.27 0-.27.45-.471.898-.471.652 0 1.213.404 1.797 1.235.45.651.921.943 1.483.943.561 0 .92-.202 1.437-.719.382-.381.674-.718.944-.943"></path></svg></a>
 </header>
 
-<div id="upload-section">
-    <button class="btn" type="button" onclick="startNewTrack()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-      Dessiner un tracé
-    </button>
-    <div class="or-divider">ou</div>
-  <div class="drop-zone" id="dropZone">
-    <div class="icon-wrap">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#087f01" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <path d="M12 18v-6"/>
-        <path d="m9 15 3-3 3 3"/>
-      </svg>
-    </div>
-    <h2>Importer un fichier GPX</h2>
-    <p>Glissez-déposez votre fichier ici, ou cliquez pour parcourir</p>
-    <input type="file" id="fileInput" accept=".gpx,application/gpx+xml,text/xml">
-    <label for="fileInput" class="btn btn-accent">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Choisir un fichier
-    </label>
-    <div class="hint">Format .gpx — trace, waypoints, horodatages</div>
-  </div>
-  <div class="error-msg" id="errorMsg"></div>
-</div>
+<input type="file" id="fileInput" accept=".gpx,application/gpx+xml,text/xml" style="display:none">
 
 <div id="dashboard">
+  <div class="error-msg" id="errorMsg"></div>
   <div class="dash-header">
-
-    <div>
-      <label for="speedInput" style="color:var(--muted);font-size:12px;">Vitesse de marche :</label>
-      <input type="number" id="speedInput" value="4.6" min="0.2" max="30" step="0.2"
-        style="font-family:var(--mono);font-size:13px;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--surface);color:var(--text);outline:none;width:72px;">
-      <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">kme/h</span>
-      <textarea id="track-author" class="wpt-desc-input" rows="1" placeholder="Auteur·ice..."></textarea>
+    <div class="dash-header-top">
+      <div class="dash-actions-left">
+        <button class="btn" id="load_Btn" onclick="document.getElementById('fileInput').click()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Charger GPX
+        </button>
+        <button class="btn" id="new_Btn" onclick="startNewTrack()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+          Nouveau tracé
+        </button>
+      </div>
+      <div class="track-title-wrap">
+        <input type="text" id="track-name" value="" placeholder="Nom du tracé...">
+      </div>
+      <div class="dash-actions-right">
+        <button class="btn" id="download_Btn" onclick="downloadPdf()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 13 12 18 17 13"/><line x1="5" y1="21" x2="19" y2="21"/></svg>
+          PDF
+        </button>
+        <button class="btn" id="export_Btn" onclick="exportGpx()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 13 12 18 17 13"/><line x1="5" y1="21" x2="19" y2="21"/></svg>
+          GPX
+        </button>
+        <button class="btn" id="share_Btn" onclick="shareTrack()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Partager
+        </button>
+      </div>
     </div>
-
-    <div class="track-title-wrap">
-      <input type="text" id="track-name" value="" placeholder="Nom du tracé...">
+    <div class="dash-header-bottom">
+      <div class="meta-group">
+        <label for="speedInput">Vitesse :</label>
+        <input type="number" id="speedInput" value="4.6" min="0.2" max="30" step="0.2">
+        <span class="meta-unit">kme/h</span>
+      </div>
+      <textarea id="track-author" class="wpt-desc-input" rows="1" placeholder="Auteur·ice..."></textarea>
       <input id="track-date" type="date" class="wpt-desc-input" value="">
     </div>
-
-    <button class="btn" id="download_Btn" onclick="downloadPdf()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
-      PDF
-    </button>
-
-    <button class="btn" id="export_Btn" onclick="exportGpx()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 12 15 18 9 12"/></svg>
-      GPX
-    </button>
-
-    <button class="btn" id="share_Btn" onclick="shareTrack()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      Partager
-    </button>
-
-    <button class="btn" id="new_Btn" onclick="resetApp()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      Nouveau fichier
-    </button>
-
   </div>
 
   <div id="drawing-controls" class="drawing-controls" style="display:none;">
+    <button class="btn" id="cancelDrawingBtn" onclick="cancelDrawing()" style="border-color:transparent;color:var(--muted);">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Annuler
+    </button>
     <button class="btn" id="undoDrawingBtn" onclick="undoLastPoint()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
       Annuler dernier point
@@ -110,7 +94,7 @@
       <div id="map"></div>
 
     </div>
-    <div class="panel full-panel">
+    <div id="elev-panel" class="panel full-panel">
       <div class="panel-header">
         <span class="panel-dot" style="background:#087f01"></span>
         Profil altimétrique
