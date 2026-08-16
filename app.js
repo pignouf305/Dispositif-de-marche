@@ -1036,6 +1036,36 @@
     return { pts: [], firstRouterEle: 0, lastRouterEle: 0 };
   }
 
+  // ============================================================
+  // Toponymie via Nominatim (OpenStreetMap)
+  // ============================================================
+  const nominatimCache = new Map();
+
+  async function fetchPlaceName(lat, lon) {
+    const key = lat.toFixed(5) + ',' + lon.toFixed(5);
+    if (nominatimCache.has(key)) return nominatimCache.get(key);
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&accept-language=fr`,
+        { headers: { 'User-Agent': 'DispositifMarche/1.0' } }
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const name = data.name
+        || data.address?.village
+        || data.address?.hamlet
+        || data.address?.locality
+        || data.address?.town
+        || null;
+      nominatimCache.set(key, name);
+      return name;
+    } catch (err) {
+      console.warn('[NOMINATIM] Échec :', err.message);
+      return null;
+    }
+  }
+
   async function addTrackPoint(lat, lon) {
     if (state.isRouting || Date.now() < state.ignoreMapClickUntil) return;
     if (state.pts.length === 0) {
@@ -1046,6 +1076,15 @@
       if (state.mapInst) state.mapInst.panTo([lat, lon]);
       drawTrackDuringEditing();
       renderWptTable();
+
+      // Chercher le vrai nom du lieu en arrière-plan
+      const idx = 0;
+      fetchPlaceName(lat, lon).then(name => {
+        if (name && state.wpts[idx]) {
+          state.wpts[idx].name = name;
+          renderWptTable();
+        }
+      });
       return;
     }
     state.isRouting = true;
@@ -1065,14 +1104,23 @@
 
     route.pts.forEach(p => state.pts.push(p));
     state.pts.push({ lat, lon, ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0, userPlaced: true });
+    const wptIdx = state.wpts.length;
     state.wpts.push({
       lat, lon,
-      name: 'Étape ' + state.wpts.length,
+      name: 'Étape ' + wptIdx,
       desc: '', cmt: '',
       ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0,
       brkT: 0
     });
     state.isRouting = false;
+
+    // Chercher le vrai nom du lieu en arrière-plan
+    fetchPlaceName(lat, lon).then(name => {
+      if (name && state.wpts[wptIdx]) {
+        state.wpts[wptIdx].name = name;
+        renderWptTable();
+      }
+    });
 
     // Met à jour les stats et waypoints en temps réel pendant le dessin
     if (state.pts.length >= 2) {
