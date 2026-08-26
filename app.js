@@ -361,6 +361,20 @@
         attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
       });
 
+      const carteWanderland = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.astra.wanderland/default/current/3857/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.astra.admin.ch/astra/fr/home.html">OFROU + canton</a>',
+        minZoom: 2, maxZoom: 18,
+        bounds: [[45.398181, 5.140242], [48.230651, 11.47757]],
+        opacity: 0.6
+      });
+
+      const carteRandonnee = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-wanderwege/default/current/3857/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.astra.admin.ch/astra/fr/home.html">OFROU + canton</a>',
+        minZoom: 2, maxZoom: 18,
+        bounds: [[45.398181, 5.140242], [48.230651, 11.47757]],
+        opacity: 0.8
+      });
+
       state.mapInst = L.map('map', { zoomControl: true, layers: [carteSwissTopo] });
       state.mapInst.doubleClickZoom.disable();
 
@@ -412,7 +426,10 @@
         'Swisstopo Satellite': carteSwissTopoSat,
         'Open Topo': OpenTopoMap,
         'OSM': carteosm,
-      }, null, null).addTo(state.mapInst);
+      }, {
+        'Wanderland': carteWanderland,
+        'Randonnée': carteRandonnee
+      }, null).addTo(state.mapInst);
 
       state.markerGroup = L.layerGroup().addTo(state.mapInst);
 
