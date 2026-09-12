@@ -119,14 +119,161 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 
 .hint { font-size: 11px; color: var(--muted); margin-top: 12px; font-family: var(--mono); }
 
+.or-divider {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 0 10px;
+  font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.or-divider::before, .or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.drawing-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--accent-light);
+  border: 1px solid #b3e6d4;
+  border-radius: var(--radius);
+}
+
 /* ── Dashboard ── */
 #dashboard { display: none; padding: 24px; max-width: 1140px; margin: 0 auto; }
 
 .dash-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
 }
-#track-name { font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
+
+.dash-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dash-actions-left,
+.dash-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.track-title-wrap {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(480px, 40vw);
+}
+
+#track-name {
+  width: 100%;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -.3px;
+  color: var(--text);
+  font-family: var(--sans);
+  text-align: center;
+
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 12px;
+  outline: none;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#track-name:hover,
+#track-name:focus {
+  background: var(--bg);
+  border-color: var(--border);
+}
+#track-name::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.dash-header-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.meta-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.meta-group label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.meta-group input[type="number"] {
+  font-family: var(--mono);
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  width: 72px;
+}
+.meta-unit {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dash-header-bottom .wpt-desc-input {
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 28px;
+  padding: 4px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: none;
+  width: auto;
+  min-width: 140px;
+  max-width: 260px;
+}
+.dash-header-bottom .wpt-desc-input:focus {
+  border-color: var(--accent);
+  color: var(--text);
+  outline: none;
+}
+
+/* ── Grisé quand pas de données ── */
+.dimmed {
+  opacity: 0.35;
+  pointer-events: none;
+  filter: grayscale(0.7);
+  transition: opacity .3s ease, filter .3s ease;
+}
+.panel.dimmed { background: var(--bg); }
 
 /* ── Stats grid ── */
 .stats-grid {
@@ -183,7 +330,7 @@ header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
 .chart-wrap { padding: 14px; height: 200px; position: relative; }
 
 /* ── Waypoints table ── */
-#wpt-panel { display: none; page-break-before: always;}
+#wpt-panel { page-break-before: always;} 
 .wpt-table-wrap { overflow-x: auto; }
 .wpt-table {
   width: 100%;

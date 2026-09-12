@@ -22,8 +22,51 @@
     elevCI: null,
     markerGroup: null,
     isAddingMarker: false,
+    isDrawingTrack: false,
+    isRouting: false,
+    ignoreMapClickUntil: 0,
   };
 
+  // Sauvegarde de l'état précédent (pour annuler le dessin de tracé)
+  let previousState = null;
+
+  function savePreviousState() {
+    let mapView = { center: [46.2044, 6.1432], zoom: 13 };
+    if (state.mapInst) {
+      const c = state.mapInst.getCenter();
+      mapView = { center: [c.lat, c.lng], zoom: state.mapInst.getZoom() };
+    }
+    previousState = {
+      pts: state.pts.map(p => ({ ...p })),
+      wpts: state.wpts.map(w => ({ ...w })),
+      trackName: state.trackName,
+      trackDate: new Date(state.trackDate),
+      trackAuthor: state.trackAuthor,
+      cumDist: [...state.cumDist],
+      cumDistEffort: [...state.cumDistEffort],
+      totalDist: state.totalDist,
+      totalDistEffort: state.totalDistEffort,
+      gainPos: state.gainPos,
+      gainNeg: state.gainNeg,
+      hasEle: state.hasEle,
+      eles: [...state.eles],
+      speed: $('#speedInput').value,
+      startTime: $('#startTimeInput').value,
+      trackDateValue: $('#track-date').value,
+      mapView,
+    };
+  }
+  // Configuration routing (Cloudflare Worker)
+  // ============================================================
+  // IMPORTANT : remplacez par l'URL de votre Worker après déploiement.
+  // Les instructions de déploiement sont dans proxy-worker.js
+  const WORKER_URL = 'https://ors-proxy.bariboule.workers.dev/';
+  const WORKER_CONFIGURED = /^https:\/\/[^\/]+\.workers\.dev\/?$/i.test(WORKER_URL);
+  if (!WORKER_CONFIGURED) {
+    console.warn('%c[ROUTING] Worker ORS non configuré. Éditez WORKER_URL dans app.js (ligne ~35).', 'color:orange;font-weight:bold');
+  } else {
+    console.log('%c[ROUTING] Worker ORS configuré : ' + WORKER_URL, 'color:green');
+  }
   // ============================================================
   // Helpers DOM
   // ============================================================
@@ -48,6 +91,49 @@
       }
       return c;
     });
+  }
+
+  // ============================================================
+  // Compression / Encodage URL
+  // ============================================================
+  function supportsCompression() {
+    return typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
+  }
+
+  async function compressToBase64(str) {
+    const encoded = new TextEncoder().encode(str);
+    const stream = new ReadableStream({
+      start(controller) { controller.enqueue(encoded); controller.close(); }
+    }).pipeThrough(new CompressionStream('deflate-raw'));
+    const compressed = await new Response(stream).arrayBuffer();
+    const bytes = new Uint8Array(compressed);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function decompressFromBase64(b64) {
+    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new ReadableStream({
+      start(controller) { controller.enqueue(bytes); controller.close(); }
+    }).pipeThrough(new DecompressionStream('deflate-raw'));
+    const decompressed = await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(decompressed);
+  }
+
+  function simplifyPoints(pts) {
+    const MAX = 500;
+    if (pts.length <= MAX) return pts;
+    const step = Math.ceil(pts.length / MAX);
+    const simplified = [];
+    simplified.push(pts[0]);
+    for (let i = step; i < pts.length - 1; i += step) simplified.push(pts[i]);
+    simplified.push(pts[pts.length - 1]);
+    return simplified;
   }
 
   // ============================================================
@@ -180,9 +266,10 @@
   // Affichage dashboard
   // ============================================================
   function showDashboard() {
-    $('#upload-section').style.display = 'none';
+    const upload = $('#upload-section');
+    if (upload) upload.style.display = 'none';
     $('#dashboard').style.display = 'block';
-    $('#track-name').textContent = state.trackName;
+    $('#track-name').value = state.trackName;
     $('#track-author').value = state.trackAuthor;
 
     const d = state.trackDate;
@@ -200,8 +287,27 @@
   function getDurationStr(kmeh) {
     if (!kmeh || kmeh <= 0) return '—';
     const distKme = state.totalDistEffort / 1000;
-    const ms = (distKme / kmeh) * 3600000;
-    return new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const totalMin = (distKme / kmeh) * 60;
+    const h = Math.floor(totalMin / 60);
+    const m = Math.round(totalMin % 60);
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function updateUIState() {
+    const hasData = state.pts.length > 0;
+    const method = hasData ? 'remove' : 'add';
+    $('#statsGrid').classList[method]('dimmed');
+    $('#elev-panel').classList[method]('dimmed');
+    $('#wpt-panel').classList[method]('dimmed');
+
+    const titleWrap = $('.track-title-wrap');
+    if (titleWrap) titleWrap.classList[method]('dimmed');
+
+    const actionRight = $('.dash-actions-right');
+    if (actionRight) actionRight.classList[method]('dimmed');
+
+    const headerBottom = $('.dash-header-bottom');
+    if (headerBottom) headerBottom.classList[method]('dimmed');
   }
 
   function renderStats() {
@@ -229,7 +335,7 @@
   // ============================================================
   // Carte
   // ============================================================
-  function createMap() {
+  function createMap(opts = {}) {
     setTimeout(() => {
       if (state.mapInst) { state.mapInst.remove(); state.mapInst = null; }
 
@@ -255,7 +361,22 @@
         attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
       });
 
+      const carteWanderland = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.astra.wanderland/default/current/3857/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.astra.admin.ch/astra/fr/home.html">OFROU + canton</a>',
+        minZoom: 2, maxZoom: 18,
+        bounds: [[45.398181, 5.140242], [48.230651, 11.47757]],
+        opacity: 0.6
+      });
+
+      const carteRandonnee = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-wanderwege/default/current/3857/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.astra.admin.ch/astra/fr/home.html">OFROU + canton</a>',
+        minZoom: 2, maxZoom: 18,
+        bounds: [[45.398181, 5.140242], [48.230651, 11.47757]],
+        opacity: 0.8
+      });
+
       state.mapInst = L.map('map', { zoomControl: true, layers: [carteSwissTopo] });
+      state.mapInst.doubleClickZoom.disable();
 
       const fsOpenIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
       const fsCloseIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>';
@@ -305,18 +426,42 @@
         'Swisstopo Satellite': carteSwissTopoSat,
         'Open Topo': OpenTopoMap,
         'OSM': carteosm,
-      }, null, null).addTo(state.mapInst);
+      }, {
+        'Wanderland': carteWanderland,
+        'Randonnée': carteRandonnee
+      }, null).addTo(state.mapInst);
 
       state.markerGroup = L.layerGroup().addTo(state.mapInst);
 
-      // Listener unique pour l'ajout de marqueur
+      // Listener unique pour l'ajout de marqueur ou le dessin de tracé
       state.mapInst.on('click', e => {
-        if (!state.isAddingMarker) return;
-        addManualMarker(e.latlng.lat, e.latlng.lng);
+        if (Date.now() < state.ignoreMapClickUntil) return;
+        if (state.isAddingMarker) {
+          addManualMarker(e.latlng.lat, e.latlng.lng);
+        } else if (state.isDrawingTrack) {
+          addTrackPoint(e.latlng.lat, e.latlng.lng);
+        }
       });
 
+      if (opts.initialView) {
+        state.mapInst.setView(opts.initialView.center, opts.initialView.zoom);
+      }
+
+      updateMapCursor();
       drawMarkers(true);
     }, 150);
+  }
+
+  function updateMapCursor() {
+    if (!state.mapInst) return;
+    const container = state.mapInst.getContainer();
+    if (state.isDrawingTrack || state.isAddingMarker) {
+      container.style.cursor = 'crosshair';
+      state.mapInst.doubleClickZoom.disable();
+    } else {
+      container.style.cursor = '';
+      state.mapInst.doubleClickZoom.enable();
+    }
   }
 
   function drawMarkers(fit = false) {
@@ -325,17 +470,25 @@
     const lls = state.pts.map(p => [p.lat, p.lon]);
     state.markerGroup.clearLayers();
 
-    const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 });
-    state.markerGroup.addLayer(poly);
-    if (fit) state.mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+    if (lls.length >= 2) {
+      const poly = L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 });
+      state.markerGroup.addLayer(poly);
+      if (fit) state.mapInst.fitBounds(poly.getBounds(), { padding: [24, 24] });
+    } else if (lls.length === 1 && fit) {
+      state.mapInst.setView(lls[0], 15);
+    }
 
     const mkIcon = (bg) => L.divIcon({
       html: `<div style="width:12px;height:12px;background:${bg};border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
       iconSize: [12, 12], iconAnchor: [6, 6], className: ''
     });
 
-    state.markerGroup.addLayer(L.marker(lls[0], { icon: mkIcon('#1a9e6e') }).bindPopup('Départ'));
-    state.markerGroup.addLayer(L.marker(lls[lls.length - 1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée'));
+    if (lls.length) {
+      state.markerGroup.addLayer(L.marker(lls[0], { icon: mkIcon('#1a9e6e') }).bindPopup('Départ'));
+      if (lls.length > 1) {
+        state.markerGroup.addLayer(L.marker(lls[lls.length - 1], { icon: mkIcon('#e05a2b') }).bindPopup('Arrivée'));
+      }
+    }
 
     state.wpts.forEach((w, i) => {
       const popupParts = [`<strong>${escapeHtml(w.name)}</strong>`];
@@ -357,7 +510,7 @@
     const btn = $('#btn-add-marker');
     btn.classList.toggle('active', state.isAddingMarker);
     btn.textContent = state.isAddingMarker ? '❌ Annuler' : '📍 Ajouter un marqueur';
-    if (state.mapInst) state.mapInst.getContainer().style.cursor = state.isAddingMarker ? 'crosshair' : '';
+    updateMapCursor();
     if (state.isAddingMarker) $('#map').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
@@ -501,8 +654,10 @@
     const startBar = $('#start-time-bar');
 
     if (!state.wpts.length) {
-      panel.style.display = 'none';
+      panel.style.display = 'block';
+      count.textContent = '(0)';
       tbody.innerHTML = '';
+      startBar.style.display = 'flex';
       return;
     }
 
@@ -635,6 +790,17 @@
       dateClone.parentNode.replaceChild(div, dateClone);
     }
 
+    // 4b. Titre du tracé (input -> texte)
+    const nameOriginal = $('#track-name');
+    const nameClone = clone.querySelector('#track-name');
+    if (nameClone && nameOriginal) {
+      const div = document.createElement('div');
+      div.id = nameClone.id;
+      div.className = nameClone.className;
+      div.textContent = nameOriginal.value || '';
+      nameClone.parentNode.replaceChild(div, nameClone);
+    }
+
     // 5. Textareas -> divs (valeurs lues depuis le DOM original)
     // Ne traiter que les <textarea> réels (évite d'écraser le div de date créé au §4)
     clone.querySelectorAll('.wpt-desc-input').forEach(el => {
@@ -765,13 +931,359 @@
   };
 
   // ============================================================
+  // Dessin de tracé manuel
+  // ============================================================
+
+  window.startNewTrack = function() {
+    clearError();
+
+    // Sauvegarder la vue actuelle de la carte avant reset
+    let savedView = { center: [46.2044, 6.1432], zoom: 13 };
+    if (state.mapInst) {
+      const c = state.mapInst.getCenter();
+      savedView = { center: [c.lat, c.lng], zoom: state.mapInst.getZoom() };
+    }
+
+    savePreviousState(); // mémorise le trek précédent
+    resetApp();          // ménage complet
+
+    state.isDrawingTrack = true;
+    state.isRouting = false;
+    state.ignoreMapClickUntil = Date.now() + 600;
+    state.trackName = 'Nouveau tracé';
+    $('#track-name').value = 'Nouveau tracé';
+
+    showDashboard();
+    $('#drawing-controls').style.display = 'flex';
+    $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
+
+    createMap({ initialView: savedView });
+  };
+
+  async function fetchWorkerSegment(from, to) {
+    console.log('%c[ROUTING] Tentative Worker ORS → ' + WORKER_URL, 'color:blue');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat1: from.lat, lon1: from.lon,
+          lat2: to.lat, lon2: to.lon
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 200));
+      }
+      const data = await res.json();
+      const coords = data.features[0].geometry.coordinates; // [[lon, lat, ele], ...]
+      if (coords.length < 2) throw new Error('Pas assez de points dans la réponse');
+      const firstRouterEle = typeof coords[0][2] === 'number' ? coords[0][2] : 0;
+      const lastRouterEle = typeof coords[coords.length - 1][2] === 'number' ? coords[coords.length - 1][2] : 0;
+      const pts = coords.slice(1, -1).map(([lon, lat, ele]) => ({ lat, lon, ele: typeof ele === 'number' ? ele : 0 }));
+      console.log('%c[ROUTING] ✔ Worker ORS répond OK (' + coords.length + ' points)', 'color:green');
+      return { pts, firstRouterEle, lastRouterEle };
+    } catch (err) {
+      clearTimeout(timeout);
+      console.error('%c[ROUTING] ✘ Worker ORS échoue :', 'color:red', err.message || err);
+      throw err;
+    }
+  }
+
+  async function fetchBRouterSegment(from, to, profile) {
+    console.log('%c[ROUTING] Tentative BRouter → profile=' + profile, 'color:blue');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const url = `https://brouter.de/brouter?lonlats=${from.lon},${from.lat}|${to.lon},${to.lat}&profile=${profile}&format=geojson`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data.features || !data.features[0] || !data.features[0].geometry) throw new Error('Pas de géométrie');
+      const coords = data.features[0].geometry.coordinates;
+      if (coords.length < 2) throw new Error('Pas assez de points');
+      const firstRouterEle = typeof coords[0][2] === 'number' ? coords[0][2] : 0;
+      const lastRouterEle = typeof coords[coords.length - 1][2] === 'number' ? coords[coords.length - 1][2] : 0;
+      const pts = coords.slice(1, -1).map(([lon, lat, ele]) => ({ lat, lon, ele: typeof ele === 'number' ? ele : 0 }));
+      console.log('%c[ROUTING] ✔ BRouter OK profile=' + profile + ' (' + coords.length + ' points)', 'color:green');
+      return { pts, firstRouterEle, lastRouterEle };
+    } catch (err) {
+      clearTimeout(timeout);
+      console.error('%c[ROUTING] ✘ BRouter échoue profile=' + profile + ' :', 'color:orange', err.message || err);
+      throw err;
+    }
+  }
+
+  async function fetchRouteSegment(from, to) {
+    const label = `[${from.lat.toFixed(4)},${from.lon.toFixed(4)}] → [${to.lat.toFixed(4)},${to.lon.toFixed(4)}]`;
+    console.group('%c[ROUTING] Segment ' + label, 'color:#555;font-weight:bold');
+
+    // 1. Essayer le Worker ORS
+    if (WORKER_CONFIGURED) {
+      try {
+        const result = await fetchWorkerSegment(from, to);
+        console.groupEnd();
+        return result;
+      } catch (err) {
+        // déjà loggué dans fetchWorkerSegment
+      }
+    } else {
+      console.warn('%c[ROUTING] Worker ignoré (non configuré)', 'color:orange');
+    }
+
+    // 2. Fallback cascade BRouter
+    const profiles = ['foot', 'hiking-mountain', 'hiking', 'trekking'];
+    for (const profile of profiles) {
+      try {
+        const result = await fetchBRouterSegment(from, to, profile);
+        console.groupEnd();
+        return result;
+      } catch (err) {
+        // déjà loggué dans fetchBRouterSegment
+      }
+    }
+
+    console.warn('%c[ROUTING] Tous les routeurs ont échoué → segment droit utilisé', 'color:red;font-weight:bold');
+    console.groupEnd();
+    return { pts: [], firstRouterEle: 0, lastRouterEle: 0 };
+  }
+
+  // ============================================================
+  // Toponymie via Nominatim (OpenStreetMap)
+  // ============================================================
+  const nominatimCache = new Map();
+
+  async function fetchPlaceName(lat, lon) {
+    const key = lat.toFixed(5) + ',' + lon.toFixed(5);
+    if (nominatimCache.has(key)) return nominatimCache.get(key);
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=18&accept-language=fr`,
+        { headers: { 'User-Agent': 'DispositifMarche/1.0' } }
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const name = data.name
+        || data.address?.village
+        || data.address?.hamlet
+        || data.address?.locality
+        || data.address?.town
+        || null;
+      nominatimCache.set(key, name);
+      return name;
+    } catch (err) {
+      console.warn('[NOMINATIM] Échec :', err.message);
+      return null;
+    }
+  }
+
+  async function addTrackPoint(lat, lon) {
+    if (state.isRouting || Date.now() < state.ignoreMapClickUntil) return;
+    if (state.pts.length === 0) {
+      state.pts.push({ lat, lon, ele: 0, userPlaced: true });
+      state.wpts.push({ lat, lon, name: 'Départ', desc: '', cmt: '', ele: 0, brkT: 0 });
+      computeTrackMetrics();
+      snapWaypointsToTrack();
+      if (state.mapInst) state.mapInst.panTo([lat, lon]);
+      drawTrackDuringEditing();
+      renderWptTable();
+      updateUIState();
+      createChart();
+
+      // Chercher le vrai nom du lieu en arrière-plan
+      const idx = 0;
+      fetchPlaceName(lat, lon).then(name => {
+        if (name && state.wpts[idx]) {
+          state.wpts[idx].name = name;
+          renderWptTable();
+        }
+      });
+      return;
+    }
+    state.isRouting = true;
+    $('#drawingStatus').textContent = 'Calcul de l\'itinéraire...';
+    const lastPt = state.pts[state.pts.length - 1];
+    const route = await fetchRouteSegment(lastPt, { lat, lon });
+
+    // Si c'est le premier segment calculé, corrige l'altitude du point de départ
+    // avec celle fournie par le routeur pour son origine.
+    if (state.pts.length === 1 && typeof route.firstRouterEle === 'number') {
+      state.pts[0].ele = route.firstRouterEle;
+      state.wpts[0].ele = route.firstRouterEle;
+    }
+
+    const prevDist = state.totalDist;
+    const prevGain = state.gainPos;
+
+    route.pts.forEach(p => state.pts.push(p));
+    state.pts.push({ lat, lon, ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0, userPlaced: true });
+    const wptIdx = state.wpts.length;
+    state.wpts.push({
+      lat, lon,
+      name: 'Étape ' + wptIdx,
+      desc: '', cmt: '',
+      ele: typeof route.lastRouterEle === 'number' ? route.lastRouterEle : 0,
+      brkT: 0
+    });
+    state.isRouting = false;
+
+    // Chercher le vrai nom du lieu en arrière-plan
+    fetchPlaceName(lat, lon).then(name => {
+      if (name && state.wpts[wptIdx]) {
+        state.wpts[wptIdx].name = name;
+        renderWptTable();
+      }
+    });
+
+    // Met à jour les stats et waypoints en temps réel pendant le dessin
+    if (state.pts.length >= 2) {
+      computeTrackMetrics();
+      snapWaypointsToTrack();
+      renderStats();
+      renderWptTable();
+      updateUIState();
+      createChart();
+      const segDist = ((state.totalDist - prevDist) / 1000).toFixed(2);
+      const segDPlus = state.hasEle ? Math.round(state.gainPos - prevGain) + 'm+' : '';
+      $('#drawingStatus').textContent = `Segment ajouté : +${segDist} km — ${segDPlus}`;
+    } else {
+      $('#drawingStatus').textContent = 'Cliquez sur la carte pour ajouter des points';
+    }
+
+    drawTrackDuringEditing();
+  }
+
+  window.undoLastPoint = function() {
+    if (!state.isDrawingTrack || !state.pts.length || state.isRouting) return;
+    state.pts.pop();
+    while (state.pts.length && !state.pts[state.pts.length - 1].userPlaced) {
+      state.pts.pop();
+    }
+    if (state.wpts.length) state.wpts.pop();
+    drawTrackDuringEditing();
+    if (state.pts.length >= 2) {
+      computeTrackMetrics();
+      snapWaypointsToTrack();
+      renderStats();
+      renderWptTable();
+      createChart();
+    } else {
+      computeTrackMetrics();
+      state.totalDist = 0;
+      state.totalDistEffort = 0;
+      state.gainPos = 0;
+      state.gainNeg = 0;
+      state.cumDist = [0];
+      state.cumDistEffort = [0];
+      $('#statsGrid').innerHTML = '';
+      if (state.wpts.length) snapWaypointsToTrack();
+      renderWptTable();
+      createChart();
+    }
+    updateUIState();
+  };
+
+  window.cancelDrawing = function() {
+    state.isDrawingTrack = false;
+    $('#drawing-controls').style.display = 'none';
+
+    if (previousState) {
+      // Restaurer le trek précédent
+      state.pts = previousState.pts.map(p => ({ ...p }));
+      state.wpts = previousState.wpts.map(w => ({ ...w }));
+      state.trackName = previousState.trackName;
+      state.trackDate = new Date(previousState.trackDate);
+      state.trackAuthor = previousState.trackAuthor;
+      state.cumDist = [...previousState.cumDist];
+      state.cumDistEffort = [...previousState.cumDistEffort];
+      state.totalDist = previousState.totalDist;
+      state.totalDistEffort = previousState.totalDistEffort;
+      state.gainPos = previousState.gainPos;
+      state.gainNeg = previousState.gainNeg;
+      state.hasEle = previousState.hasEle;
+      state.eles = [...previousState.eles];
+
+      $('#track-name').value = state.trackName;
+      $('#track-author').value = state.trackAuthor;
+      $('#speedInput').value = previousState.speed;
+      $('#startTimeInput').value = previousState.startTime;
+      $('#track-date').value = previousState.trackDateValue;
+
+      showDashboard();
+      renderStats();
+      renderWptTable();
+      createMap({ initialView: previousState.mapView });
+      createChart();
+      updateUIState();
+      previousState = null;
+    } else {
+      resetApp();
+      createMap({ initialView: { center: [46.2044, 6.1432], zoom: 13 } });
+    }
+  };
+
+  function drawTrackDuringEditing() {
+    if (!state.mapInst) return;
+    state.markerGroup.clearLayers();
+    const lls = state.pts.map(p => [p.lat, p.lon]);
+    if (lls.length >= 2) {
+      state.markerGroup.addLayer(L.polyline(lls, { color: '#3d5af1', weight: 3.5, opacity: 0.9 }));
+    }
+    lls.forEach((ll, i) => {
+      const pt = state.pts[i];
+      if (!pt.userPlaced) return; // masquer les points intermédiaires OSRM
+      const color = i === 0 ? '#1a9e6e' : (i === lls.length - 1 ? '#e05a2b' : '#3d5af1');
+      state.markerGroup.addLayer(L.circleMarker(ll, {
+        radius: 5, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
+      }));
+    });
+  }
+
+  window.finishTrackDrawing = async function() {
+    state.isDrawingTrack = false;
+    if (state.pts.length < 2) {
+      showError('Le tracé doit comporter au moins 2 points.');
+      resetApp();
+      return;
+    }
+    $('#undoDrawingBtn').style.display = 'none';
+    $('#finishDrawingBtn').style.display = 'none';
+    $('#drawingStatus').textContent = 'Finalisation...';
+
+    // Le 1er point est posé manuellement à ele:0, tandis que les suivants
+    // viennent du routeur (ORS/BRouter) avec des altitudes réelles.
+    // On corrige donc localement le 1er point sans appel réseau.
+    if (state.pts[0].ele === 0) {
+      const firstWithEle = state.pts.find(p => p.ele !== 0);
+      if (firstWithEle) {
+        state.pts[0].ele = firstWithEle.ele;
+        console.log('[ELEV] Altitude du 1er point corrigée :', firstWithEle.ele);
+      }
+    }
+
+    $('#drawing-controls').style.display = 'none';
+    $('#undoDrawingBtn').style.display = '';
+    $('#finishDrawingBtn').style.display = '';
+
+    computeTrackMetrics();
+    renderStats();
+    renderWptTable();
+    createMap();
+    createChart();
+    updateUIState();
+  };
+
+  // ============================================================
   // Reset
   // ============================================================
   window.resetApp = function() {
-    $('#upload-section').style.display = 'flex';
-    $('#dashboard').style.display = 'none';
     clearError();
-    $('#fileInput').value = '';
 
     if (state.mapInst) { state.mapInst.remove(); state.mapInst = null; }
     if (state.elevCI) { state.elevCI.destroy(); state.elevCI = null; }
@@ -781,17 +1293,107 @@
     state.trackName = '';
     state.trackDate = new Date();
     state.trackAuthor = '';
+    state.totalDist = 0;
+    state.totalDistEffort = 0;
+    state.gainPos = 0;
+    state.gainNeg = 0;
+    state.cumDist = [0];
+    state.cumDistEffort = [0];
+    state.eles = [];
+    state.hasEle = false;
     state.isAddingMarker = false;
+    state.isDrawingTrack = false;
+    state.isRouting = false;
 
     $('#statsGrid').innerHTML = '';
     $('#wpt-tbody').innerHTML = '';
-    $('#wpt-panel').style.display = 'none';
-    $('#track-name').textContent = '';
+    $('#track-name').value = '';
     $('#track-author').value = '';
     $('#track-date').value = '';
     $('#startTimeInput').value = '08:00';
     delete $('#startTimeInput').dataset.userModified;
+    $('#drawing-controls').style.display = 'none';
+
+    // Nettoyer le hash de partage
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    updateUIState();
   };
+
+  window.shareTrack = async function() {
+    if (!supportsCompression()) {
+      showError('La fonction de partage n\'est pas supportée par ce navigateur.');
+      return;
+    }
+    try {
+      const payload = {
+        n: state.trackName,
+        a: state.trackAuthor,
+        d: state.trackDate.toISOString(),
+        s: parseFloat($('#speedInput').value) || 4.6,
+        p: simplifyPoints(state.pts).map(p => [+p.lat.toFixed(6), +p.lon.toFixed(6), +p.ele.toFixed(2)]),
+        w: state.wpts.map(w => [
+          +w.lat.toFixed(6), +w.lon.toFixed(6),
+          w.name, w.desc || '', w.cmt || '',
+          w.ele !== null ? +w.ele.toFixed(2) : null,
+          w.brkT || 0
+        ])
+      };
+      const json = JSON.stringify(payload);
+      const compressed = await compressToBase64(json);
+      const url = window.location.origin + window.location.pathname + window.location.search + '#t=' + compressed;
+
+      await navigator.clipboard.writeText(url);
+
+      const btn = $('#share_Btn');
+      const original = btn.innerHTML;
+      btn.innerHTML = '<span style="color:#1a9e6e">URL copiée !</span>';
+      setTimeout(() => btn.innerHTML = original, 2000);
+    } catch (err) {
+      console.error('Share error:', err);
+      showError('Erreur lors de la génération du lien de partage.');
+    }
+  };
+
+  async function loadFromHash() {
+    const hash = location.hash;
+    if (!hash || !hash.startsWith('#t=')) return;
+    if (!supportsCompression()) {
+      showError('Impossible d\'ouvrir le lien de partage avec ce navigateur.');
+      return;
+    }
+    try {
+      const compressed = hash.slice(3);
+      const json = await decompressFromBase64(compressed);
+      const data = JSON.parse(json);
+
+      state.trackName = data.n || '';
+      state.trackAuthor = data.a || '';
+      state.trackDate = data.d ? new Date(data.d) : new Date();
+      if (!isNaN(data.s)) $('#speedInput').value = data.s;
+
+      state.pts = (data.p || []).map(([lat, lon, ele]) => ({ lat, lon, ele: ele != null ? ele : 0 }));
+      state.wpts = (data.w || []).map(([lat, lon, name, desc, cmt, ele, brkT]) => ({
+        lat, lon,
+        name: name || '', desc: desc || '', cmt: cmt || '',
+        ele: ele !== null ? ele : null,
+        brkT: brkT || 0
+      }));
+
+      if (!state.pts.length) throw new Error('Aucun point de trace dans le lien.');
+
+      showDashboard();
+      computeTrackMetrics();
+      snapWaypointsToTrack();
+      renderStats();
+      renderWptTable();
+      createMap();
+      createChart();
+      updateUIState();
+    } catch (err) {
+      console.error('Load from hash error:', err);
+      showError('Erreur lors de l\'ouverture du lien de partage : ' + err.message);
+    }
+  }
 
   // ============================================================
   // Process fichier
@@ -806,6 +1408,11 @@
     reader.onerror = () => showError('Impossible de lire ce fichier.');
     reader.onload = e => {
       try {
+        // Sortir du mode dessin si actif
+        state.isDrawingTrack = false;
+        const dc = $('#drawing-controls');
+        if (dc) dc.style.display = 'none';
+
         parseGPX(e.target.result, file.name);
         showDashboard();
         computeTrackMetrics();
@@ -814,6 +1421,9 @@
         renderWptTable();
         createMap();
         createChart();
+        updateUIState();
+        // Nettoyer le hash de partage lors du chargement d'un nouveau fichier
+        history.replaceState(null, '', window.location.pathname + window.location.search);
       } catch (err) {
         showError('Erreur lors de l\'analyse : ' + err.message);
         console.error(err);
@@ -842,17 +1452,66 @@
   // Initialisation (listeners uniques)
   // ============================================================
   function init() {
-    // Upload
+    // Upload (drop zone optionnelle si elle existe encore)
     const dropZone = $('#dropZone');
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', e => {
+    if (dropZone) {
+      dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f) processFile(f);
+      });
+    }
+    $('#fileInput').addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+    // Afficher le dashboard directement
+    $('#dashboard').style.display = 'block';
+
+    // État propre au chargement
+    clearError();
+    state.pts = [];
+    state.wpts = [];
+    state.trackName = '';
+    state.trackDate = new Date();
+    state.trackAuthor = '';
+    state.totalDist = 0;
+    state.totalDistEffort = 0;
+    state.gainPos = 0;
+    state.gainNeg = 0;
+    state.cumDist = [0];
+    state.cumDistEffort = [0];
+    state.eles = [];
+    state.hasEle = false;
+    state.isAddingMarker = false;
+    state.isDrawingTrack = false;
+    state.isRouting = false;
+
+    $('#track-name').value = '';
+    $('#track-author').value = '';
+    $('#track-date').value = new Date().toISOString().slice(0, 10);
+    $('#speedInput').value = '4.6';
+    $('#startTimeInput').value = '08:00';
+    delete $('#startTimeInput').dataset.userModified;
+
+    // Init carte sur Genève
+    createMap({ initialView: { center: [46.2044, 6.1432], zoom: 13 } });
+
+    // Tableau waypoints vide (visible)
+    renderWptTable();
+
+    // Stats vierges
+    renderStats();
+    updateUIState();
+
+    // Drag-and-drop global sur toute la page
+    document.addEventListener('dragover', e => { e.preventDefault(); });
+    document.addEventListener('drop', e => {
       e.preventDefault();
-      dropZone.classList.remove('drag-over');
       const f = e.dataTransfer.files[0];
       if (f) processFile(f);
     });
-    $('#fileInput').addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
 
     // Contrôles globaux
     $('#speedInput').addEventListener('input', () => { renderStats(); updateWptTimes(); });
@@ -863,6 +1522,7 @@
       updateWptTimes();
     });
     $('#track-author').addEventListener('input', function() { state.trackAuthor = this.value; });
+    $('#track-name').addEventListener('input', function() { state.trackName = this.value; });
     $('#track-date').addEventListener('change', function() {
       const [y, m, d] = this.value.split('-').map(Number);
       state.trackDate.setFullYear(y, m - 1, d);
@@ -942,8 +1602,14 @@
 
     $('#btn-add-marker').addEventListener('click', toggleAddMarker);
 
-    // Debug
-    if (new URLSearchParams(location.search).get('debug') === 'true') {
+    // Chargement depuis hash de partage
+    const hasTrackHash = location.hash && location.hash.startsWith('#t=');
+    if (hasTrackHash) {
+      loadFromHash();
+    }
+
+    // Debug (uniquement si aucun hash de partage présent)
+    if (!hasTrackHash && new URLSearchParams(location.search).get('debug') === 'true') {
       console.warn('⚠️ MODE DEBUG ACTIF : Chargement du fichier de test...');
       debugWithLocalFile();
     }
